@@ -13,12 +13,17 @@ function install_nextcloud
   # using bash substring syntax to remove the 9 characters "password="
   MYSQL_PASSWORD=${MYSQL_PASSWORD_STR:9}
 
-  rm ~/html/nocontent.html
-  cd ~/html || exit 
+  if [ -e ~/html/nocontent.html ]
+  then rm ~/html/nocontent.html
+  fi
+  # shellcheck disable=2088
+  if [ "$(ls --almost-all ~/html/)" ]; then echo '~/html is not empty, abort!'; exit 1; fi
+  cd ~/html
   echo "Downloading Nextcloud to ~/html/"
-  curl https://download.nextcloud.com/server/releases/latest.tar.bz2 |
+  curl --progress-bar https://download.nextcloud.com/server/releases/latest.tar.bz2 |
     tar -xjf - --strip-components=1
   mysql --verbose --execute="CREATE DATABASE ${USER}_nextcloud"
+  echo "Installing Nextcloud"
   php ~/html/occ maintenance:install \
     --admin-user "${NEXTCLOUD_ADMIN_USER}" \
     --admin-pass "${NEXTCLOUD_ADMIN_PASS}" \
@@ -63,18 +68,9 @@ function setup_domains
 {
   echo "You currently have configured the following domains:"
   uberspace web domain list
-  while true
-  do
-  read -r -p "Do you want to add another domain to the web configuration of your uberspace? (y/n) " ANSWER
-  case $ANSWER in
-    [Yy]* | [Jj]* )
-        add_domain
-      break;;
-    [Nn]* )
-      break;;
-    * ) echo "Please answer yes or no. ";;
-  esac
-  done
+  if yes-no_question "Do you want to add another domain to the web configuration of your uberspace?"
+  then add_domain
+  fi
 }
 
 function add_domain
@@ -87,8 +83,8 @@ function setup_php
 {
   uberspace tools version use php 8.0
   echo "Applying relevant PHP settings for Nextcloud"
-touch ~/etc/php.d/opcache.ini
-cat << end_of_content > ~/etc/php.d/opcache.ini
+  touch ~/etc/php.d/opcache.ini
+  cat << end_of_content > ~/etc/php.d/opcache.ini
 opcache.enable=1
 opcache.enable_cli=1
 opcache.interned_strings_buffer=16
@@ -99,17 +95,17 @@ opcache.revalidate_freq=1
 end_of_content
 
   touch ~/etc/php.d/apcu.ini
-cat << end_of_content > ~/etc/php.d/apcu.ini
+  cat << end_of_content > ~/etc/php.d/apcu.ini
 apc.enable_cli=1
 end_of_content
 
   touch ~/etc/php.d/memory_limit.ini
-cat << end_of_content > ~/etc/php.d/memory_limit.ini
+  cat << end_of_content > ~/etc/php.d/memory_limit.ini
 memory_limit=512M
 end_of_content
 
   touch ~/etc/php.d/output_buffering.ini
-cat << end_of_content > ~/etc/php.d/output_buffering.ini
+  cat << end_of_content > ~/etc/php.d/output_buffering.ini
 output_buffering=off
 end_of_content
   uberspace tools restart php
@@ -119,7 +115,7 @@ function setup_redis
 {
   mkdir ~/.redis
   touch ~/.redis/conf
-cat << end_of_content > ~/.redis/conf
+  cat << end_of_content > ~/.redis/conf
 unixsocket /home/$USER/.redis/sock
 daemonize no
 port 0
@@ -127,7 +123,7 @@ save ""
 end_of_content
 
   touch ~/etc/services.d/redis.ini
-cat << end_of_content > ~/etc/services.d/redis.ini
+  cat << end_of_content > ~/etc/services.d/redis.ini
 [program:redis]
 command=redis-server %(ENV_HOME)s/.redis/conf
 directory=%(ENV_HOME)s/.redis
@@ -173,7 +169,7 @@ end_of_content
 function install_nextcloud_updater
 {
   touch ~/bin/nextcloud-update
-cat << end_of_content > ~/bin/nextcloud-update
+  cat << end_of_content > ~/bin/nextcloud-update
 #!/usr/bin/env bash
 ## Updater automatically works in maintenance:mode.
 ## Use the Uberspace backup system for files and database if you need to roll back.
@@ -197,29 +193,42 @@ end_of_content
   chmod +x ~/bin/nextcloud-update
 }
 
-function ask_if_fresh_uberspace
+function yes-no_question
 {
-  echo "This script tries to install the latest release of Nextcloud"
-  echo "but it is tested for Nextcloud 23 on Uberspace 7.12.0"
-  echo "and assumes a newly created uberspace with default settings."
-  echo "Do not run this script if you already use your Uberspace for other apps!"
+  local question=$1
   while true
   do
-  read -r -p "Do you want to execute this installer for Nextcloud? (y/n) " ANSWER
+  read -r -p "$question (y/n) " ANSWER
   case $ANSWER in
     [Yy]* | [Jj]* )
-        install_nextcloud
-      break;;
+      return 0
+      ;;
     [Nn]* )
-      break;;
+      return 1
+      ;;
     * ) echo "Please answer yes or no. ";;
   esac
   done
 }
 
+function set_critical_section { set -o pipefail -o errexit; }
+function unset_critical_section { set +o pipefail +o errexit; }
+
 function main
 {
-  ask_if_fresh_uberspace
+  set_critical_section
+
+  echo "This script tries to install the latest release of Nextcloud"
+  echo "but it is tested for Nextcloud 23 on Uberspace 7.12.0"
+  echo "and assumes a newly created Uberspace with default settings."
+  echo "Do not run this script if you already use your Uberspace for other apps!"
+
+  if yes-no_question "Do you want to execute this installer for Nextcloud?"
+  then install_nextcloud
+  fi
+
+  unset_critical_section
 }
 
 main "$@"
+exit $?
