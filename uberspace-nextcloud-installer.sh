@@ -6,7 +6,8 @@ function install_nextcloud
   read -r -p "Nextcloud admin user: " NEXTCLOUD_ADMIN_USER
   read -r -p "Nextcloud admin password: " NEXTCLOUD_ADMIN_PASS
   setup_domains
-  read -r -p "Set one of the configured domains that your Nextcloud will be accessed with as \"trusted\": " trusted_domain
+  echo "Set one of the configured domains that your Nextcloud will be accessed with as \"trusted\":"
+  read -r trusted_domain
   setup_php
   # simply get the first password string from ~/.my.cnf
   MYSQL_PASSWORD_STR=$(grep --max-count=1 password= ~/.my.cnf)
