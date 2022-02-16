@@ -21,6 +21,6 @@ bash -c "$(wget -q -O - https://github.com/EV21/uberspace-helper/raw/main/ubersp
 
 ## Demo
 
-![Nextcloud-Installer-Demo][nextcloud-installer-demo]
+https://user-images.githubusercontent.com/8345730/153936271-8dc9a823-97b3-4651-8731-d9a80885ee6e.mp4
 
-[nextcloud-installer-demo]: ./presentation/uberspace-nextcloud-installer.gif
+[nextcloud-installer-gif-demo]: ./presentation/uberspace-nextcloud-installer.gif
