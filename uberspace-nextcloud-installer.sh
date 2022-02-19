@@ -5,9 +5,8 @@ function install_nextcloud
   echo "Please set your Nextcloud login credentials."
   read -r -p "Nextcloud admin user: " NEXTCLOUD_ADMIN_USER
   read -r -p "Nextcloud admin password: " NEXTCLOUD_ADMIN_PASS
-  setup_domains
-  echo "Set one of the configured domains that your Nextcloud will be accessed with as \"trusted\":"
-  read -r trusted_domain
+  trusted_domain="$USER.uber.space"
+  #setup_domains
   setup_php
   # simply get the first password string from ~/.my.cnf
   MYSQL_PASSWORD_STR=$(grep --max-count=1 password= ~/.my.cnf)
@@ -59,10 +58,12 @@ function install_nextcloud
   setup_redis
   install_notify_push
   install_nextcloud_updater
+  install_ncc
 
   /usr/sbin/restorecon -R ~/html
 
-  echo "You can now access your Nextcloud by directing you Browser to https://$trusted_domain"
+  printf "If you want to use another domain read:\n https://lab.uberspace.de/guide_nextcloud.html#set-the-trusted-domain\n"
+  printf "You can now access your Nextcloud by directing you Browser to: \n https://%s \n" "$trusted_domain"
 }
 
 function setup_domains
@@ -78,6 +79,7 @@ function add_domain
 {
   read -rp "Domain: " DOMAIN
   uberspace web domain add "$DOMAIN"
+  trusted_domain=$DOMAIN
 }
 
 function setup_php
@@ -167,6 +169,16 @@ end_of_content
   php ~/html/occ notify_push:setup https://"$trusted_domain"/push
 }
 
+function install_ncc
+{
+  touch ~/bin/ncc
+  cat << end_of_content > ~/bin/ncc
+#!/usr/bin/env bash
+php ~/html/occ "\$@"
+end_of_content
+  chmod +x ~/bin/nextcloud-update
+}
+
 function install_nextcloud_updater
 {
   touch ~/bin/nextcloud-update
@@ -219,8 +231,7 @@ function main
 {
   set_critical_section
 
-  echo "This script tries to install the latest release of Nextcloud"
-  echo "but it is tested for Nextcloud 23 on Uberspace 7.12.0"
+  echo "This script installs the latest release of Nextcloud"
   echo "and assumes a newly created Uberspace with default settings."
   echo "Do not run this script if you already use your Uberspace for other apps!"
 
