@@ -37,6 +37,8 @@ https://user-images.githubusercontent.com/8345730/154812905-970c649d-4360-4846-9
 The following steps will be done automatically:
 
 - check gpg signature
+- install `gitea` convenience wrapper script  
+  `gitea update`, `gitea log`, `gitea start | stop | restart | status`
 - install `gitea-update` script
 
 Connect via SSH to your Uberspace an then run:
