@@ -25,7 +25,8 @@ function install_gitea
   mv --verbose "$TMP_LOCATION"/gitea "$GITEA_BIN_LOCATION"
   chmod u+x --verbose "$GITEA_BIN_LOCATION"
   #ln --symbolic --verbose "$GITEA_BIN_LOCATION" ~/bin/gitea
-  ## gitea does not use its real path, maybe use a wrapper for this
+  ## gitea does not recognize its real path, maybe use a wrapper for this
+  install_gitea_wrapper
   ln --symbolic --verbose ~/.ssh ~/gitea/.ssh
   create_app_ini
   mysql --verbose --execute="CREATE DATABASE ${USER}_gitea"
@@ -47,6 +48,38 @@ function install_gitea
   uberspace web backend list
   install_update_script
   printf "You can now access your $APP_NAME by directing you Browser to: \n https://%s.uber.space \n" "$USER"
+}
+
+function install_gitea_wrapper
+{
+  cat << 'end_of_content' > ~/bin/gitea
+#!/usr/bin/env bash
+
+## No linking to the gitea binary as that would not recognize its real path,
+## so it would set the wrong working directory settings. We just use a wrapper script for instead.
+
+FIRST_PARAMETER="$1"
+GITEA_BIN_LOCATION=$HOME/gitea/gitea
+
+case $FIRST_PARAMETER in
+  start | stop | restart | status )
+  supervisorctl $FIRST_PARAMETER gitea
+  exit $?
+  ;;
+  update | upgrade )
+  gitea-update
+  exit $?
+  ;;
+  log | logs )
+  less ~/logs/supervisord.log
+  exit $?
+  ;;
+esac
+
+$HOME/gitea/gitea "$@"
+exit $?
+end_of_content
+  chmod u+x --verbose ~/bin/gitea
 }
 
 function create_app_ini
