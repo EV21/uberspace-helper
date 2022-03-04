@@ -19,18 +19,23 @@ function install_gitea
   echo "Please set your $APP_NAME login credentials."
   read -r -p "$APP_NAME admin user: " ADMIN_USER
   read -r -p "$APP_NAME admin password: " ADMIN_PASS
-  wget --quiet --show-progress --output-document "$TMP_LOCATION"/gitea "$DOWNLOAD_URL"
+  wget --quiet --progress=bar:force --output-document "$TMP_LOCATION"/gitea "$DOWNLOAD_URL"
   verify_file
   mkdir --parents ~/gitea/custom/conf/
-  mv "$TMP_LOCATION"/gitea "$GITEA_BIN_LOCATION"
+  mv --verbose "$TMP_LOCATION"/gitea "$GITEA_BIN_LOCATION"
   chmod u+x --verbose "$GITEA_BIN_LOCATION"
-  ln --symbolic --verbose "$GITEA_BIN_LOCATION" ~/bin/gitea
+  #ln --symbolic --verbose "$GITEA_BIN_LOCATION" ~/bin/gitea
+  ## gitea does not use its real path, maybe use a wrapper for this
   ln --symbolic --verbose ~/.ssh ~/gitea/.ssh
   create_app_ini
   mysql --verbose --execute="CREATE DATABASE ${USER}_gitea"
+  echo "The database initialisation may take a while ..."
+  $GITEA_BIN_LOCATION migrate
   create_gitea_daemon_config
   supervisorctl reread
   supervisorctl update
+  supervisorctl status
+  sleep 5
   supervisorctl status
   $GITEA_BIN_LOCATION admin user create \
     --username "${ADMIN_USER}" \
@@ -111,7 +116,7 @@ function get_signature_file
   SIGNATURE_FILE_URL=$(jq --raw-output '.assets[].browser_download_url' "$TMP_LOCATION"/github_api_response.json |
     grep "linux-amd64.asc")
   rm "$TMP_LOCATION"/github_api_response.json
-  wget --quiet --show-progress --output-document "$TMP_LOCATION"/gitea.asc "$SIGNATURE_FILE_URL"
+  wget --quiet --progress=bar:force --output-document "$TMP_LOCATION"/gitea.asc "$SIGNATURE_FILE_URL"
 }
 
 function verify_file
@@ -167,7 +172,7 @@ function get_signature_file
   SIGNATURE_FILE_URL=$(jq --raw-output '.assets[].browser_download_url' $TMP_LOCATION/github_api_response.json |
     grep "linux-amd64.asc")
   rm $TMP_LOCATION/github_api_response.json
-  wget --output-document $TMP_LOCATION/gitea.asc "$SIGNATURE_FILE_URL"
+  wget --quiet --progress=bar:force --output-document $TMP_LOCATION/gitea.asc "$SIGNATURE_FILE_URL"
 }
 
 function verify_file
@@ -191,17 +196,16 @@ function verify_file
 
 function do_update_procedure
 {
-  wget --output-document $TMP_LOCATION/gitea "$DOWNLOAD_URL"
+  wget --quiet --progress=bar:force --output-document $TMP_LOCATION/gitea "$DOWNLOAD_URL"
   verify_file
-  systemctl stop gitea
-  mv $TMP_LOCATION/gitea "$GITEA_LOCATION"
+  supervisorctl stop gitea
+  mv --verbose $TMP_LOCATION/gitea "$GITEA_LOCATION"
   chmod u+x --verbose "$GITEA_LOCATION"
-  echo "Start gitea for upgrade"
-  systemctl start gitea
-  echo "Waiting for 10 seconds…"
-  sleep 10
-  echo "Restart gitea"
-  systemctl restart gitea
+  echo "Start gitea migration"
+  $GITEA_LOCATION migrate
+  supervisorctl start gitea
+  sleep 5
+  supervisorctl status gitea
 }
 
 ## this is a helper function to compare two versions as a "lower than" operator
