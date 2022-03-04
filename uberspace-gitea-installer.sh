@@ -74,6 +74,13 @@ case $FIRST_PARAMETER in
   less ~/logs/supervisord.log
   exit $?
   ;;
+  backup )
+  ## this command creates a backup zip file with db, repos, config, log, data
+  ## restoring the backup is more difficult
+  ## read: https://docs.gitea.io/en-us/backup-and-restore/#restore-command-restore
+  $HOME/gitea/gitea dump --tempdir $HOME/tmp
+  exit $?
+  ;;
 esac
 
 $HOME/gitea/gitea "$@"
@@ -122,6 +129,9 @@ NO_REPLY_ADDRESS           = noreply.${USER}.uber.space
 ENABLED     = true
 MAILER_TYPE = sendmail
 FROM        = ${USER}@uber.space
+
+[repository]
+DEFAULT_BRANCH = main
 end_of_content
 }
 
