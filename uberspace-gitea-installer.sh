@@ -195,6 +195,20 @@ ORG=go-gitea # Organisation or GitHub user
 REPO=gitea
 GITHUB_API_URL=https://api.github.com/repos/$ORG/$REPO/releases/latest
 
+function do_update_procedure
+{
+  wget --quiet --progress=bar:force --output-document $TMP_LOCATION/gitea "$DOWNLOAD_URL"
+  verify_file
+  supervisorctl stop gitea
+  mv --verbose $TMP_LOCATION/gitea "$GITEA_LOCATION"
+  chmod u+x --verbose "$GITEA_LOCATION"
+  echo "Start gitea migration"
+  $GITEA_LOCATION migrate
+  supervisorctl start gitea
+  sleep 5
+  supervisorctl status gitea
+}
+
 function get_local_version
 {
   LOCAL_VERSION=$($GITEA_LOCATION --version |
@@ -235,20 +249,6 @@ function verify_file
   then rm $TMP_LOCATION/gitea.asc; return 0
   else echo "gpg verification results in a BAD signature"; exit 1
   fi
-}
-
-function do_update_procedure
-{
-  wget --quiet --progress=bar:force --output-document $TMP_LOCATION/gitea "$DOWNLOAD_URL"
-  verify_file
-  supervisorctl stop gitea
-  mv --verbose $TMP_LOCATION/gitea "$GITEA_LOCATION"
-  chmod u+x --verbose "$GITEA_LOCATION"
-  echo "Start gitea migration"
-  $GITEA_LOCATION migrate
-  supervisorctl start gitea
-  sleep 5
-  supervisorctl status gitea
 }
 
 ## this is a helper function to compare two versions as a "lower than" operator
