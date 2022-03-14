@@ -56,7 +56,8 @@ function install_gitea_wrapper
 #!/usr/bin/env bash
 
 ## No linking to the gitea binary as that would not recognize its real path,
-## so it would set the wrong working directory settings. We just use a wrapper script for instead.
+## so it would set the wrong working directory settings. We just use a wrapper script instead.
+export GITEA_WORK_DIR=$HOME/gitea
 
 FIRST_PARAMETER="$1"
 GITEA_BIN_LOCATION=$HOME/gitea/gitea
@@ -78,12 +79,12 @@ case $FIRST_PARAMETER in
   ## this command creates a backup zip file with db, repos, config, log, data
   ## restoring the backup is more difficult
   ## read: https://docs.gitea.io/en-us/backup-and-restore/#restore-command-restore
-  $HOME/gitea/gitea dump --tempdir $HOME/tmp
+  $GITEA_BIN_LOCATION dump --tempdir $HOME/tmp
   exit $?
   ;;
 esac
 
-$HOME/gitea/gitea "$@"
+$GITEA_BIN_LOCATION "$@"
 exit $?
 end_of_content
   chmod u+x --verbose ~/bin/gitea
@@ -139,8 +140,10 @@ function create_gitea_daemon_config
 {
   cat << end_of_content > ~/etc/services.d/gitea.ini
 [program:gitea]
-command=%(ENV_HOME)s/gitea/gitea web
-autorestart=yes
+directory=%(ENV_HOME)s/gitea
+command=gitea web
+startsecs=30
+autorestart=true
 end_of_content
 }
 
