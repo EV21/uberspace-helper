@@ -97,7 +97,7 @@ function create_app_ini
 [server]
 DOMAIN               = $USER.uber.space
 ROOT_URL             = https://%(DOMAIN)s
-OFFLINE_MODE         = true ; privacy option.
+OFFLINE_MODE         = true ; Disables use of CDN for static files and Gravatar for profile pictures.
 LFS_START_SERVER     = true ; Enables Git LFS support
 
 [database]
@@ -107,7 +107,7 @@ USER     = $USER
 PASSWD   = $MYSQL_PASSWORD
 
 [security]
-INSTALL_LOCK        = true
+INSTALL_LOCK        = true ; disables the installation web page
 MIN_PASSWORD_LENGTH = 8
 PASSWORD_COMPLEXITY = lower
 SECRET_KEY          = $SECRET_KEY
