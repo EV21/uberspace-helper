@@ -44,7 +44,7 @@ function install_gitea
     --email "${USER}"@uber.space \
     --admin \
     --config "/home/${USER}/gitea/custom/conf/app.ini"
-  uberspace web backend set / --http --port 9000
+  uberspace web backend set / --http --port 3000
   uberspace web backend list
   install_update_script
   printf "You can now access your $APP_NAME by directing you Browser to: \n https://%s.uber.space \n" "$USER"
@@ -94,23 +94,17 @@ function create_app_ini
 {
   SECRET_KEY=$($GITEA_BIN_LOCATION generate secret SECRET_KEY)
   cat << end_of_content > ~/gitea/custom/conf/app.ini
-APP_NAME = Gitea
-RUN_USER = $USER
-RUN_MODE = prod ; Either "dev", "prod" or "test", default is "dev".
-
 [server]
-HTTP_PORT            = 9000
 DOMAIN               = $USER.uber.space
 ROOT_URL             = https://%(DOMAIN)s
 OFFLINE_MODE         = true ; privacy option.
+LFS_START_SERVER     = true ; Enables Git LFS support
 
 [database]
 DB_TYPE  = mysql
-HOST     = 127.0.0.1:3306
 NAME     = ${USER}_gitea
 USER     = $USER
 PASSWD   = $MYSQL_PASSWORD
-SSL_MODE = disable
 
 [security]
 INSTALL_LOCK        = true
