@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 APP_NAME=Gitea
+DEFAULT_PORT=3000
 GITEA_BIN_LOCATION=$HOME/gitea/gitea
 TMP_LOCATION=$HOME/tmp
 GPG_KEY_FINGERPRINT=7C9E68152594688862D62AF62D9AE806EC1592E2
@@ -44,7 +45,7 @@ function install_gitea
     --email "${USER}"@uber.space \
     --admin \
     --config "/home/${USER}/gitea/custom/conf/app.ini"
-  uberspace web backend set / --http --port 3000
+  uberspace web backend set / --http --port $DEFAULT_PORT
   uberspace web backend list
   install_update_script
   printf "You can now access your $APP_NAME by directing you Browser to: \n https://%s.uber.space \n" "$USER"
@@ -137,6 +138,7 @@ function create_gitea_daemon_config
 directory=%(ENV_HOME)s/gitea
 command=gitea web
 startsecs=30
+stopsignal=HUP
 autorestart=true
 end_of_content
 }
@@ -194,15 +196,14 @@ GITHUB_API_URL=https://api.github.com/repos/$ORG/$REPO/releases/latest
 
 function do_update_procedure
 {
+  $GITEA_LOCATION manager flush-queues
+  supervisorctl stop gitea
   wget --quiet --progress=bar:force --output-document $TMP_LOCATION/gitea "$DOWNLOAD_URL"
   verify_file
   supervisorctl stop gitea
   mv --verbose $TMP_LOCATION/gitea "$GITEA_LOCATION"
   chmod u+x --verbose "$GITEA_LOCATION"
-  echo "Start gitea migration"
-  $GITEA_LOCATION migrate
   supervisorctl start gitea
-  sleep 5
   supervisorctl status gitea
 }
 
