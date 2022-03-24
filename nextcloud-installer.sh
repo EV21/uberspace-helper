@@ -204,26 +204,30 @@ end_of_content
 function install_nextcloud_updater
 {
   touch ~/bin/nextcloud-update
-  cat << end_of_content > ~/bin/nextcloud-update
+  cat << 'end_of_content' > ~/bin/nextcloud-update
 #!/usr/bin/env bash
+
+APP_LOCATION=$HOME/html
+
 ## Updater automatically works in maintenance:mode.
 ## Use the Uberspace backup system for files and database if you need to roll back.
 ## The Nextcloud updater creates backups only to safe base and app code data and config files
 ## so it takes ressources you might need for your productive data.
 ## Deactivate NC-updater Backups with --no-backup
-php ~/html/updater/updater.phar --no-backup --no-interaction
+php "$APP_LOCATION"/updater/updater.phar --no-backup --no-interaction
 
 ## database optimisations
-php ~/html/occ db:add-missing-primary-keys --no-interaction
-php ~/html/occ db:add-missing-columns --no-interaction
-php ~/html/occ db:add-missing-indices --no-interaction
-php ~/html/occ db:convert-filecache-bigint --no-interaction
+php "$APP_LOCATION"/occ db:add-missing-primary-keys --no-interaction
+php "$APP_LOCATION"/occ db:add-missing-columns --no-interaction
+php "$APP_LOCATION"/occ db:add-missing-indices --no-interaction
+php "$APP_LOCATION"/occ db:convert-filecache-bigint --no-interaction
 
-php ~/html/occ app:update --all
-/usr/sbin/restorecon -R ~/html
+php "$APP_LOCATION"/occ app:update --all
+/usr/sbin/restorecon -R "$APP_LOCATION"
 
-## If you have set up the notify_push service uncomment the following line by removing the #
-supervisorctl restart notify_push
+if test -f ~/etc/services.d/notify_push.ini
+then supervisorctl restart notify_push
+fi
 end_of_content
   chmod u+x ~/bin/nextcloud-update
 }
