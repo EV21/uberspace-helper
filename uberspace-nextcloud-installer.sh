@@ -20,7 +20,7 @@ function install_nextcloud
   if [ "$(ls --almost-all ~/html/)" ]; then echo '~/html is not empty, abort!'; exit 1; fi
   cd ~/html
   echo "Downloading Nextcloud to ~/html/"
-  curl --progress-bar https://download.nextcloud.com/server/releases/latest.tar.bz2 |
+  curl --progress-bar https://download.nextcloud.com/server/releases/"$(get_version_name)".tar.bz2 |
     tar -xjf - --strip-components=1
   mysql --verbose --execute="CREATE DATABASE ${USER}_nextcloud"
   echo "Installing Nextcloud"
@@ -31,7 +31,6 @@ function install_nextcloud
     --database-user "${USER}" \
     --database-pass "${MYSQL_PASSWORD}" \
     --data-dir "${HOME}/nextcloud_data"
-
 
   php ~/html/occ config:system:set trusted_domains 0 --value="$trusted_domain"
   php ~/html/occ config:system:set overwrite.cli.url --value="https://$trusted_domain"
@@ -64,6 +63,29 @@ function install_nextcloud
 
   printf "If you want to use another domain read:\n https://lab.uberspace.de/guide_nextcloud.html#set-the-trusted-domain\n"
   printf "You can now access your Nextcloud by directing you Browser to: \n https://%s \n" "$trusted_domain"
+}
+
+function process_parameters
+{
+  while test $# -gt 0
+	do
+    local next_parameter=$1
+    case $next_parameter in
+      use )
+        shift
+        VERSION="$1"
+        shift
+      ;;
+    esac
+  done
+}
+
+function get_version_name
+{
+  if [[ -n $VERSION ]]
+  then echo "nextcloud-$VERSION"; exit 0
+  else echo "latest"; exit 0
+  fi
 }
 
 function setup_domains
@@ -230,9 +252,17 @@ function unset_critical_section { set +o pipefail +o errexit; }
 function main
 {
   set_critical_section
+  process_parameters "$@"
 
-  echo "This script installs the latest release of Nextcloud"
-  echo "and assumes a newly created Uberspace with default settings."
+  if [[ -n $VERSION ]]
+  then
+    echo "This script installs Nextcloud $VERSION"
+    echo "We recommend to use the latest release."
+    ## This feature is mainly used to install older versions and then test the update script.
+  else
+    echo "This script installs the latest release of Nextcloud"
+    echo "and assumes a newly created Uberspace with default settings."
+  fi
   echo "Do not run this script if you already use your Uberspace for other apps!"
 
   if yes-no_question "Do you want to execute this installer for Nextcloud?"
