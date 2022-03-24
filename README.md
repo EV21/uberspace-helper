@@ -21,7 +21,7 @@ The following components will be set up and installed automatically:
 Connect via SSH to your Uberspace an then run:
 
 ```
-bash -c "$(wget -q -O - https://github.com/EV21/uberspace-helper/raw/main/uberspace-nextcloud-installer.sh)"
+bash -c "$(wget -q -O - https://github.com/EV21/uberspace-helper/raw/main/nextcloud-installer.sh)"
 ```
 
 ## Demo
@@ -44,5 +44,5 @@ The following steps will be done automatically:
 Connect via SSH to your Uberspace an then run:
 
 ```
-bash -c "$(wget -q -O - https://github.com/EV21/uberspace-helper/raw/main/uberspace-gitea-installer.sh)"
+bash -c "$(wget -q -O - https://github.com/EV21/uberspace-helper/raw/main/gitea-installer.sh)"
 ```
