@@ -194,11 +194,11 @@ end_of_content
 function install_ncc
 {
   touch ~/bin/ncc
-  cat << end_of_content > ~/bin/ncc
+  cat << 'end_of_content' > ~/bin/ncc
 #!/usr/bin/env bash
-php ~/html/occ "\$@"
+php ~/html/occ "$@"
 end_of_content
-  chmod +x ~/bin/nextcloud-update
+  chmod u+x ~/bin/ncc
 }
 
 function install_nextcloud_updater
@@ -210,8 +210,8 @@ function install_nextcloud_updater
 ## Use the Uberspace backup system for files and database if you need to roll back.
 ## The Nextcloud updater creates backups only to safe base and app code data and config files
 ## so it takes ressources you might need for your productive data.
-## Deactivate NC-updater Backups with --no-backup (works from 19.0.4, 18.0.10 and 17.0.10)
-php ~/html/updater/updater.phar -vv --no-backup --no-interaction
+## Deactivate NC-updater Backups with --no-backup
+php ~/html/updater/updater.phar --no-backup --no-interaction
 
 ## database optimisations
 php ~/html/occ db:add-missing-primary-keys --no-interaction
@@ -225,7 +225,7 @@ php ~/html/occ app:update --all
 ## If you have set up the notify_push service uncomment the following line by removing the #
 supervisorctl restart notify_push
 end_of_content
-  chmod +x ~/bin/nextcloud-update
+  chmod u+x ~/bin/nextcloud-update
 }
 
 function yes-no_question
