@@ -76,6 +76,10 @@ function process_parameters
         VERSION="$1"
         shift
       ;;
+      * )
+        echo "$1 can not be processed, exiting script"
+        exit 1
+      ;;
     esac
   done
 }
