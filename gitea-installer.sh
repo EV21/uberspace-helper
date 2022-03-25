@@ -171,7 +171,10 @@ function verify_file
     ## currently the key download via gpg does not work on Uberspace
     #gpg --keyserver keys.openpgp.org --recv $GPG_KEY_FINGERPRINT
     curl --silent https://keys.openpgp.org/vks/v1/by-fingerprint/$GPG_KEY_FINGERPRINT | gpg --import
-    echo "$GPG_KEY_FINGERPRINT:6:" | gpg --import-ownertrust
+  fi
+
+  if ! gpg --export-ownertrust | grep --quiet $GPG_KEY_FINGERPRINT:6:
+  then echo "$GPG_KEY_FINGERPRINT:6:" | gpg --import-ownertrust
   fi
 
   if gpg --verify "$TMP_LOCATION"/gitea.asc "$TMP_LOCATION"/gitea
