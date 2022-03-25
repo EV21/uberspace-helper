@@ -87,8 +87,8 @@ function process_parameters
 function get_version_name
 {
   if [[ -n $VERSION ]]
-  then echo "nextcloud-$VERSION"; exit 0
-  else echo "latest"; exit 0
+  then echo "nextcloud-$VERSION"
+  else echo "latest"
   fi
 }
 
