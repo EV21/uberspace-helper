@@ -7,7 +7,7 @@ LATEST_VERSION=$(curl --silent https://api.github.com/repos/$ORG/$REPO/releases/
   jq --raw-output .tag_name)
 
 function do_upgrade() {
-  supervisorctl stop $APP_NAME
+  supervisorctl stop hedgedoc
   echo "waiting 1 minute until all processes are stopped"
   sleep 1m
   mv --verbose ~/hedgedoc ~/hedgedoc_"$LOCAL_VERSION"
@@ -20,8 +20,8 @@ function do_upgrade() {
   cd ~/hedgedoc || exit
   bin/setup
   echo "You may need to wait a minute until HedgeDoc is up and running."
-  supervisorctl start $APP_NAME
-  echo "If everything works fine you can delete ~/hedgedoc_$USED_VERSION"
+  supervisorctl start hedgedoc
+  echo "If everything works fine you can delete ~/hedgedoc_$LOCAL_VERSION"
   echo "Please consider that there might be uploaded files in ~/hedgedoc_$LOCAL_VERSION/public/uploads which were not migrated to the new version if you are using the default setting."
   rm --recursive ~/hedgedoc_"$LOCAL_VERSION"
 }
