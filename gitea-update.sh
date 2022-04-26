@@ -64,7 +64,6 @@ function verify_file
   if gpg --verify "$TMP_LOCATION"/gitea.asc "$TMP_LOCATION"/gitea
   then rm "$TMP_LOCATION"/gitea.asc; return 0
   else echo "gpg verification results in a BAD signature"; exit 1
-    echo "$GPG_KEY_FINGERPRINT:6:" | gpg --import-ownertrust
   fi
 }
 
