@@ -136,7 +136,7 @@ function create_gitea_daemon_config
   cat << end_of_content > ~/etc/services.d/gitea.ini
 [program:gitea]
 directory=%(ENV_HOME)s/gitea
-command=gitea web
+command=%(ENV_HOME)s/gitea/gitea web
 startsecs=30
 stopsignal=HUP
 autorestart=true
