@@ -1,0 +1,84 @@
+#!/usr/bin/bash
+
+## source this file to enable bash autocompletion for the `uberspace` command
+## example: 👇
+## source ~/_uberspace_completion
+## usage: type uberspace<space><tab><tab>
+## the result should be an output of `mail port takeout tools web`
+##
+## This is inspired by Zero Piraeus' answer on stackoverflow, thanks. 👍🚀
+## https://stackoverflow.com/questions/17879322/how-do-i-autocomplete-nested-multi-level-subcommands/17881946#17881946
+
+_uberspace()
+{
+    local cur prev
+
+    cur=${COMP_WORDS[COMP_CWORD]}
+    prev=${COMP_WORDS[COMP_CWORD-1]}
+
+    case ${COMP_CWORD} in
+        1)
+            COMPREPLY=($(compgen -W "mail port takeout tools web" -- ${cur}))
+            ;;
+        2)
+            case ${prev} in
+                mail)
+                    COMPREPLY=($(compgen -W "catchall domain spamfolder user" -- ${cur}))
+                    ;;
+                port)
+                    COMPREPLY=($(compgen -W "add del list" -- ${cur}))
+                    ;;
+                # takeout)
+                ## Beta? - As I have not used this tool I don't know if this is correct
+                #     COMPREPLY=($(compgen -W "takeout takein items" -- ${cur}))
+                #     ;;
+                tools)
+                    COMPREPLY=($(compgen -W "restart version" -- ${cur}))
+                    ;;
+                web)
+                    COMPREPLY=($(compgen -W "backend domain errorpage header log" -- ${cur}))
+                    ;;
+            esac
+            ;;
+        3)
+            case ${prev} in
+                catchall)
+                    COMPREPLY=($(compgen -W "del set status" -- ${cur}))
+                    ;;
+                domain)
+                    COMPREPLY=($(compgen -W "add del list" -- ${cur}))
+                    ;;
+                spamfolder | errorpage | log)
+                    COMPREPLY=($(compgen -W "disable enable status" -- ${cur}))
+                    ;;
+                user)
+                    COMPREPLY=($(compgen -W "add del forward list password" -- ${cur}))
+                    ;;
+                restart)
+                    COMPREPLY=($(compgen -W "php" -- ${cur}))
+                    ;;
+                version)
+                    COMPREPLY=($(compgen -W "list show use" -- ${cur}))
+                    ;;
+                backend)
+                    COMPREPLY=($(compgen -W "del list set" -- ${cur}))
+                    ;;
+                header)
+                    COMPREPLY=($(compgen -W "del list set suppress" -- ${cur}))
+                    ;;
+            esac
+        ;;
+        4)
+            case ${prev} in
+                show | use)
+                    COMPREPLY=($(compgen -W "couchdb erlang mongodb node php postgresql prolog ruby rust" -- ${cur}))
+                    ;;
+            esac
+        ;;
+        *)
+            COMPREPLY=()
+            ;;
+    esac
+}
+
+complete -F _uberspace uberspace
