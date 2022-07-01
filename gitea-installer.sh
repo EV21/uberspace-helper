@@ -4,7 +4,7 @@ APP_NAME=Gitea
 DEFAULT_PORT=3000
 GITEA_BIN_LOCATION=$HOME/gitea/gitea
 TMP_LOCATION=$HOME/tmp
-GPG_KEY_FINGERPRINT=7C9E68152594688862D62AF62D9AE806EC1592E2
+PGP_KEY_FINGERPRINT=7C9E68152594688862D62AF62D9AE806EC1592E2
 ORG=go-gitea # Organisation or GitHub user
 REPO=gitea
 GITHUB_API_URL=https://api.github.com/repos/$ORG/$REPO/releases/latest
@@ -145,7 +145,6 @@ end_of_content
 
 function get_latest_version
 {
-
   curl --silent $GITHUB_API_URL > "$TMP_LOCATION"/github_api_response.json
   TAG_NAME=$(jq --raw-output '.tag_name' "$TMP_LOCATION"/github_api_response.json)
   LATEST_VERSION=${TAG_NAME:1}
@@ -166,15 +165,15 @@ function verify_file
   get_signature_file
 
   ## downloading public key if it does not already exist
-  if ! gpg --fingerprint $GPG_KEY_FINGERPRINT
+  if ! gpg --fingerprint $PGP_KEY_FINGERPRINT
   then
     ## currently the key download via gpg does not work on Uberspace
-    #gpg --keyserver keys.openpgp.org --recv $GPG_KEY_FINGERPRINT
-    curl --silent https://keys.openpgp.org/vks/v1/by-fingerprint/$GPG_KEY_FINGERPRINT | gpg --import
+    #gpg --keyserver keys.openpgp.org --recv $PGP_KEY_FINGERPRINT
+    curl --silent https://keys.openpgp.org/vks/v1/by-fingerprint/$PGP_KEY_FINGERPRINT | gpg --import
   fi
 
-  if ! gpg --export-ownertrust | grep --quiet $GPG_KEY_FINGERPRINT:6:
-  then echo "$GPG_KEY_FINGERPRINT:6:" | gpg --import-ownertrust
+  if ! gpg --export-ownertrust | grep --quiet $PGP_KEY_FINGERPRINT:6:
+  then echo "$PGP_KEY_FINGERPRINT:6:" | gpg --import-ownertrust
   fi
 
   if gpg --verify "$TMP_LOCATION"/gitea.asc "$TMP_LOCATION"/gitea
@@ -191,7 +190,7 @@ function install_update_script
 APP_NAME=Gitea
 GITEA_LOCATION=$HOME/gitea/gitea
 TMP_LOCATION=$HOME/tmp
-GPG_KEY_FINGERPRINT=7C9E68152594688862D62AF62D9AE806EC1592E2
+PGP_KEY_FINGERPRINT=7C9E68152594688862D62AF62D9AE806EC1592E2
 
 ORG=go-gitea # Organisation or GitHub user
 REPO=gitea
@@ -238,12 +237,12 @@ function verify_file
   get_signature_file
 
   ## downloading public key if it does not already exist
-  if ! gpg --fingerprint $GPG_KEY_FINGERPRINT
+  if ! gpg --fingerprint $PGP_KEY_FINGERPRINT
   then
     ## currently the key download via gpg does not work on Uberspace
-    #gpg --keyserver keys.openpgp.org --recv $GPG_KEY_FINGERPRINT
-    curl --silent https://keys.openpgp.org/vks/v1/by-fingerprint/$GPG_KEY_FINGERPRINT | gpg --import
-    echo "$GPG_KEY_FINGERPRINT:6:" | gpg --import-ownertrust
+    #gpg --keyserver keys.openpgp.org --recv $PGP_KEY_FINGERPRINT
+    curl --silent https://keys.openpgp.org/vks/v1/by-fingerprint/$PGP_KEY_FINGERPRINT | gpg --import
+    echo "$PGP_KEY_FINGERPRINT:6:" | gpg --import-ownertrust
   fi
 
   if gpg --verify $TMP_LOCATION/gitea.asc $TMP_LOCATION/gitea
@@ -252,8 +251,8 @@ function verify_file
   fi
 }
 
-## this is a helper function to compare two versions as a "lower than" operator
-function version_lt
+## version_lower_than A B returns whether A < B
+function version_lower_than
 {
   test "$(echo "$@" |
     tr " " "n" |
@@ -271,7 +270,7 @@ function main
     echo "Your $APP_NAME is already up to date."
     echo "You are running $APP_NAME $LOCAL_VERSION"
   else
-    if version_lt "$LOCAL_VERSION" "$LATEST_VERSION"
+    if version_lower_than "$LOCAL_VERSION" "$LATEST_VERSION"
     then
       echo "There is a new version available."
       echo "Doing update from $LOCAL_VERSION to $LATEST_VERSION"
