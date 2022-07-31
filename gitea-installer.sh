@@ -15,7 +15,10 @@ MYSQL_PASSWORD=${MYSQL_PASSWORD_STR:9}
 
 function install_gitea
 {
-  get_latest_version
+  if [[ -n $USE_VERSION ]]
+  then GITHUB_API_URL=https://api.github.com/repos/$ORG/$REPO/releases/tag/v$USE_VERSION
+  fi
+  get_download_url
   echo "Installing $APP_NAME $LATEST_VERSION"
   echo "Please set your $APP_NAME login credentials."
   read -r -p "$APP_NAME admin user: " ADMIN_USER
@@ -49,6 +52,25 @@ function install_gitea
   uberspace web backend list
   install_update_script
   printf "You can now access your $APP_NAME by directing you Browser to: \n https://%s.uber.space \n" "$USER"
+}
+
+function process_parameters
+{
+  while test $# -gt 0
+	do
+    local next_parameter=$1
+    case $next_parameter in
+      use )
+        shift
+        USE_VERSION="$1"
+        shift
+      ;;
+      * )
+        echo "$1 can not be processed, exiting script"
+        exit 1
+      ;;
+    esac
+  done
 }
 
 function install_gitea_wrapper
@@ -309,6 +331,7 @@ function unset_critical_section { set +o pipefail +o errexit; }
 function main
 {
   set_critical_section
+  process_parameters "$@"
 
   echo "This script installs the latest release of $APP_NAME"
   echo "and assumes a newly created Uberspace with default settings."
