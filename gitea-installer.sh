@@ -51,7 +51,26 @@ function install_gitea
   uberspace web backend set / --http --port $DEFAULT_PORT
   uberspace web backend list
   install_update_script
+  echo "This is the file structure for this app"
+  echo_tree
   printf "You can now access your $APP_NAME by directing you Browser to: \n https://%s.uber.space \n" "$USER"
+}
+
+function uninstall_gitea
+{
+  # If some files do not exist there may be some errors
+  unset_critical_section
+  $GITEA_BIN_LOCATION manager flush-queues
+  supervisorctl stop gitea
+  sleep 30
+  mysql --verbose --execute="DROP DATABASE ${USER}_gitea"
+  rm ~/etc/services.d/gitea.ini
+  rm -r ~/gitea
+  rm ~/bin/gitea
+  rm ~/bin/gitea-update
+  supervisorctl reread
+  supervisorctl update
+  set_critical_section
 }
 
 function process_parameters
@@ -64,6 +83,13 @@ function process_parameters
         shift
         USE_VERSION="$1"
         shift
+      ;;
+      uninstall )
+        echo "This command tries to revert the $APP_NAME installation, it will delete all of its scripts, service config, ~/gitea directory with all contents and drop the database"
+        if yes-no_question "Do you really want to do this?"
+        then uninstall_gitea
+        fi
+        exit 0
       ;;
       * )
         echo "$1 can not be processed, exiting script"
@@ -301,6 +327,27 @@ main "${@}"
 exit $?
 end_of_content
   chmod u+x --verbose ~/bin/gitea-update
+}
+
+function echo_tree
+{
+cat << 'end_of_content'
+.
+├── bin
+│   ├── [-rwxrw-r--] gitea
+│   └── [-rwxrw-r--] gitea-update
+├── etc
+│   ├── services.d
+│   │   └── gitea.ini
+│   └── ...
+├── gitea
+│   ├── custom
+│   │   └── conf
+│   │       └── app.ini
+│   ├── data
+│   └── [-rwxrw-r--] gitea
+└── ...
+end_of_content
 }
 
 function yes-no_question
