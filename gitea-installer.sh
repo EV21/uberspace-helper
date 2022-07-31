@@ -87,23 +87,23 @@ GITEA_BIN_LOCATION=$HOME/gitea/gitea
 
 case $FIRST_PARAMETER in
   start | stop | restart | status )
-  supervisorctl $FIRST_PARAMETER gitea
-  exit $?
+    supervisorctl $FIRST_PARAMETER gitea
+    exit $?
   ;;
   update | upgrade )
-  gitea-update
-  exit $?
+    gitea-update
+    exit $?
   ;;
   log | logs )
-  less ~/logs/supervisord.log
-  exit $?
+    less ~/logs/supervisord.log
+    exit $?
   ;;
   backup )
-  ## this command creates a backup zip file with db, repos, config, log, data
-  ## restoring the backup is more difficult
-  ## read: https://docs.gitea.io/en-us/backup-and-restore/#restore-command-restore
-  $GITEA_BIN_LOCATION dump --tempdir $HOME/tmp
-  exit $?
+    ## this command creates a backup zip file with db, repos, config, log, data
+    ## restoring the backup is more difficult
+    ## read: https://docs.gitea.io/en-us/backup-and-restore/#restore-command-restore
+    $GITEA_BIN_LOCATION dump --tempdir $HOME/tmp
+    exit $?
   ;;
 esac
 
@@ -147,9 +147,6 @@ NO_REPLY_ADDRESS           = noreply.${USER}.uber.space
 ENABLED     = true
 MAILER_TYPE = sendmail
 FROM        = ${USER}@uber.space
-
-[repository]
-DEFAULT_BRANCH = main
 end_of_content
 }
 
@@ -165,9 +162,9 @@ autorestart=true
 end_of_content
 }
 
-function get_latest_version
+function get_download_url
 {
-  curl --silent $GITHUB_API_URL > "$TMP_LOCATION"/github_api_response.json
+  curl --silent "$GITHUB_API_URL" > "$TMP_LOCATION"/github_api_response.json
   TAG_NAME=$(jq --raw-output '.tag_name' "$TMP_LOCATION"/github_api_response.json)
   LATEST_VERSION=${TAG_NAME:1}
   DOWNLOAD_URL=$(jq --raw-output '.assets[].browser_download_url' "$TMP_LOCATION"/github_api_response.json |
@@ -224,7 +221,6 @@ function do_update_procedure
   supervisorctl stop gitea
   wget --quiet --progress=bar:force --output-document $TMP_LOCATION/gitea "$DOWNLOAD_URL"
   verify_file
-  supervisorctl stop gitea
   mv --verbose $TMP_LOCATION/gitea "$GITEA_LOCATION"
   chmod u+x --verbose "$GITEA_LOCATION"
   supervisorctl start gitea

@@ -15,7 +15,6 @@ function do_update_procedure
   supervisorctl stop gitea
   wget --quiet --progress=bar:force --output-document "$TMP_LOCATION"/gitea "$DOWNLOAD_URL"
   verify_file
-  supervisorctl stop gitea
   mv --verbose "$TMP_LOCATION"/gitea "$GITEA_LOCATION"
   chmod u+x --verbose "$GITEA_LOCATION"
   supervisorctl start gitea
