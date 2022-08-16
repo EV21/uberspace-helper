@@ -36,7 +36,7 @@ _uberspace()
                     COMPREPLY=($(compgen -W "restart version" -- ${cur}))
                     ;;
                 web)
-                    COMPREPLY=($(compgen -W "backend domain errorpage header log" -- ${cur}))
+                    COMPREPLY=($(compgen -W "backend domain errorpage header log traffic" -- ${cur}))
                     ;;
             esac
             ;;
