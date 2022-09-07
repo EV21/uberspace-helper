@@ -16,7 +16,7 @@ MYSQL_PASSWORD=${MYSQL_PASSWORD_STR:9}
 function install_gitea
 {
   if [[ -n $USE_VERSION ]]
-  then GITHUB_API_URL=https://api.github.com/repos/$ORG/$REPO/releases/tag/v$USE_VERSION
+  then GITHUB_API_URL=https://api.github.com/repos/$ORG/$REPO/releases/tags/v$USE_VERSION
   fi
   get_download_url
   echo "Installing $APP_NAME $LATEST_VERSION"
