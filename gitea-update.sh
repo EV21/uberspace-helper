@@ -12,7 +12,15 @@ GITHUB_API_URL=https://api.github.com/repos/$ORG/$REPO/releases/latest
 function do_update_procedure
 {
   $GITEA_LOCATION manager flush-queues
+  gitea_pid=$(supervisorctl pid gitea)
+  echo "Process-ID is $gitea_pid"
   supervisorctl stop gitea
+  if [[ $gitea_pid -gt 0 ]] && (ps --pid "$gitea_pid" > /dev/null)
+  then echo "still running! - killing it..."; kill "$gitea_pid"
+  fi
+  if (lsof -nP -iTCP:3000 -sTCP:LISTEN)
+  then echo "port 3000 is still in use, abbort"; exit 1
+  fi
   wget --quiet --progress=bar:force --output-document "$TMP_LOCATION"/gitea "$DOWNLOAD_URL"
   verify_file
   mv --verbose "$TMP_LOCATION"/gitea "$GITEA_LOCATION"

@@ -61,7 +61,12 @@ function uninstall_gitea
   # If some files do not exist there may be some errors
   unset_critical_section
   $GITEA_BIN_LOCATION manager flush-queues
+  gitea_pid=$(supervisorctl pid gitea)
+  echo "Process-ID is $gitea_pid"
   supervisorctl stop gitea
+  if (ps --pid "$gitea_pid" > /dev/null)
+  then echo "still running! - killing it..."; kill "$gitea_pid"
+  fi
   sleep 30
   mysql --verbose --execute="DROP DATABASE ${USER}_gitea"
   rm ~/etc/services.d/gitea.ini
@@ -183,7 +188,6 @@ function create_gitea_daemon_config
 directory=%(ENV_HOME)s/gitea
 command=%(ENV_HOME)s/gitea/gitea web
 startsecs=30
-stopsignal=HUP
 autorestart=true
 end_of_content
 }
@@ -244,10 +248,18 @@ GITHUB_API_URL=https://api.github.com/repos/$ORG/$REPO/releases/latest
 function do_update_procedure
 {
   $GITEA_LOCATION manager flush-queues
+  gitea_pid=$(supervisorctl pid gitea)
+  echo "Process-ID is $gitea_pid"
   supervisorctl stop gitea
-  wget --quiet --progress=bar:force --output-document $TMP_LOCATION/gitea "$DOWNLOAD_URL"
+  if [[ $gitea_pid -gt 0 ]] && (ps --pid "$gitea_pid" > /dev/null)
+  then echo "still running! - killing it..."; kill "$gitea_pid"
+  fi
+  if (lsof -nP -iTCP:3000 -sTCP:LISTEN)
+  then echo "port 3000 is still in use, abbort"; exit 1
+  fi
+  wget --quiet --progress=bar:force --output-document "$TMP_LOCATION"/gitea "$DOWNLOAD_URL"
   verify_file
-  mv --verbose $TMP_LOCATION/gitea "$GITEA_LOCATION"
+  mv --verbose "$TMP_LOCATION"/gitea "$GITEA_LOCATION"
   chmod u+x --verbose "$GITEA_LOCATION"
   supervisorctl start gitea
   supervisorctl status gitea
@@ -379,6 +391,10 @@ function main
   echo "This script installs the latest release of $APP_NAME"
   echo "and assumes a newly created Uberspace with default settings."
   echo "Do not run this script if you already use your Uberspace for other apps!"
+
+  if (lsof -nP -iTCP:3000 -sTCP:LISTEN)
+  then echo "Port 3000 is already in use, abbort"; exit 1
+  fi
 
   if yes-no_question "Do you want to execute this installer for $APP_NAME?"
   then install_gitea
