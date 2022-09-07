@@ -316,8 +316,19 @@ function version_lower_than
     head --lines=1)" != "$1"
 }
 
+function fix_stop_signal
+{
+  if (grep --quiet HUP "$HOME"/etc/services.d/gitea.ini)
+  then
+    sed --in-place '/HUP/d' "$HOME"/etc/services.d/gitea.ini
+    supervisorctl reread
+    supervisorctl update
+  fi
+}
+
 function main
 {
+  fix_stop_signal
   get_local_version
   get_latest_version
 
