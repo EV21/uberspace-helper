@@ -8,10 +8,14 @@ VERBOSE_OUTPUT=true
 NO_BACKUP=false
 NO_INTERACTION=false
 
-NCC="php $APP_LOCATION/occ"
 ORG=nextcloud # Organisation or GitHub user
 REPO=server
 GITHUB_API_URL=https://api.github.com/repos/$ORG/$REPO/releases
+
+function ncc
+{
+  php "$APP_LOCATION"/occ "$@"
+}
 
 function is_verbose
 {
@@ -30,7 +34,7 @@ function verbose_echo
 
 function get_current_version
 {
-  $NCC --version |
+  ncc --version |
     awk '{print $NF}'
 }
 
@@ -46,6 +50,7 @@ function get_latest_version
     jq . "$TMP_LOCATION"/github_api_response.json |
     jq 'map(select(.tag_name | test("(v'"$MAJOR_VERSION"'.\\d+.\\d+$)")))' |
     jq --raw-output '.[0].tag_name')
+  rm "$TMP_LOCATION"/github_api_response.json
   ## remove the first character 'v', for example 'v24.0.1' -> '24.0.1' using substring syntax
   local version="${tag_name:1}"
   echo "$version"
@@ -56,7 +61,15 @@ function do_update_procedure
   cd $TMP_LOCATION || exit 1
   folder_should_not_exist "$TMP_LOCATION/nextcloud"
   verbose_echo "Download latest-$MAJOR_VERSION.zip"
-  curl --progress-bar --remote-name https://download.nextcloud.com/server/releases/latest-"$MAJOR_VERSION".zip
+  local release_archive="latest-$MAJOR_VERSION.zip"
+  local signature_file=${release_archive}.asc
+  curl --progress-bar --remote-name https://download.nextcloud.com/server/releases/"$release_archive"
+  curl --silent --remote-name https://download.nextcloud.com/server/releases/"$signature_file"
+  curl --silent --remote-name https://nextcloud.com/nextcloud.asc
+  gpg --import nextcloud.asc
+  if ! gpg --verify "$TMP_LOCATION/$signature_file" "$TMP_LOCATION/$release_archive"
+  then echo "gpg verification results in a BAD signature"; exit 1
+  fi
   verbose_echo "unzip latest-$MAJOR_VERSION.zip"
   unzip -q latest-"$MAJOR_VERSION".zip
   verbose_echo "Copy config to new version"
@@ -73,16 +86,18 @@ function do_update_procedure
   fi
   verbose_echo "Moving new files to destination"
   mv $TMP_LOCATION/nextcloud "$APP_LOCATION"
-  verbose_echo "removing latest-$MAJOR_VERSION.zip"
+  verbose_echo "Removing setup files"
   rm latest-"$MAJOR_VERSION".zip
+  rm latest-"$MAJOR_VERSION".zip.asc
+  rm nextcloud.asc
   ## official docs: (!) this MUST be executed from within your nextcloud installation directory
   cd "$APP_LOCATION" || exit 1
-  $NCC upgrade
-  $NCC db:add-missing-primary-keys --no-interaction
-  $NCC db:add-missing-columns --no-interaction
-  $NCC db:add-missing-indices --no-interaction
-  $NCC db:convert-filecache-bigint --no-interaction
-  $NCC app:update --all
+  ncc upgrade
+  ncc db:add-missing-primary-keys --no-interaction
+  ncc db:add-missing-columns --no-interaction
+  ncc db:add-missing-indices --no-interaction
+  ncc db:convert-filecache-bigint --no-interaction
+  ncc app:update --all
   /usr/sbin/restorecon -R "$APP_LOCATION"
   if test -f ~/etc/services.d/notify_push.ini
   then supervisorctl restart notify_push
@@ -126,8 +141,9 @@ function process_parameters
   done
 }
 
-## this is a helper function to compare two versions as a "lower than" operator
-function version_lt
+## version_lower_than A B
+# returns whether A < B
+function version_lower_than
 {
   test "$(echo "$@" |
     tr " " "n" |
@@ -194,12 +210,12 @@ function main
   then
     verbose_echo "Your $APP_NAME $MAJOR_VERSION already has the latest point release."
     verbose_echo "You are running $APP_NAME $CURRENT_VERSION"
-    if is_verbose; then $NCC update:check; fi
+    if is_verbose; then ncc update:check; fi
     verbose_echo "If you want to do a major update don't skip major releases."
     verbose_echo "Example: 18.0.5 -> 18.0.11 -> 19.0.5 -> 20.0.2"
     verbose_echo "Therefore it is recommended to use the built-in updater"
   else
-    if version_lt "$CURRENT_VERSION" "$LATEST_VERSION"
+    if version_lower_than "$CURRENT_VERSION" "$LATEST_VERSION"
     then
       echo "There is a new point release version available."
       echo "Doing update from $CURRENT_VERSION to $LATEST_VERSION"

@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+APP_NAME=Nextcloud
+
 function install_nextcloud
 {
   echo "Please set your Nextcloud login credentials."
@@ -20,11 +22,26 @@ function install_nextcloud
   if [ "$(ls --almost-all ~/html/)" ]; then echo '~/html is not empty, abort!'; exit 1; fi
   cd ~/html
   echo "Downloading Nextcloud to ~/html/"
-  curl --progress-bar https://download.nextcloud.com/server/releases/"$(get_version_name)".tar.bz2 |
-    tar -xjf - --strip-components=1
+  release_name=$(get_version_name)
+  release_archive="$release_name".tar.bz2
+  signature_file="$release_archive".asc
+  curl --progress-bar --remote-name https://download.nextcloud.com/server/releases/"$release_archive"
+  curl --silent --remote-name https://download.nextcloud.com/server/releases/"$signature_file"
+  curl --silent --remote-name https://nextcloud.com/nextcloud.asc
+  gpg --import nextcloud.asc
+  PGP_KEY_FINGERPRINT='28806A878AE423A28372792ED75899B9A724937A'
+  #gpg --keyserver pgp.mit.edu --recv-keys $PGP_KEY_FINGERPRINT
+  echo "$PGP_KEY_FINGERPRINT:6:" | gpg --import-ownertrust
+  if ! gpg --verify "$signature_file" "$release_archive"
+  then echo "gpg verification results in a BAD signature"; exit 1
+  fi
+  echo "Extracting archive"
+  tar -xjf "$release_archive" --strip-components=1
+  rm "$release_archive" "$signature_file" nextcloud.asc
   mysql --verbose --execute="CREATE DATABASE ${USER}_nextcloud"
   echo "Installing Nextcloud"
-  php ~/html/occ maintenance:install \
+  install_ncc
+  ncc maintenance:install \
     --admin-user "${NEXTCLOUD_ADMIN_USER}" \
     --admin-pass "${NEXTCLOUD_ADMIN_PASS}" \
     --database 'mysql' --database-name "${USER}_nextcloud" \
@@ -32,37 +49,66 @@ function install_nextcloud
     --database-pass "${MYSQL_PASSWORD}" \
     --data-dir "${HOME}/nextcloud_data"
 
-  php ~/html/occ config:system:set trusted_domains 0 --value="$trusted_domain"
-  php ~/html/occ config:system:set overwrite.cli.url --value="https://$trusted_domain"
+  ncc config:system:set trusted_domains 0 --value="$trusted_domain"
+  ncc config:system:set overwrite.cli.url --value="https://$trusted_domain"
 
   echo "Setting symbolic links for more easy log file access"
   ln --symbolic --verbose ~/nextcloud_data/nextcloud.log ~/logs/nextcloud.log
   ln --symbolic --verbose ~/nextcloud_data/updater.log ~/logs/nextcloud-updater.log
 
-  php ~/html/occ config:system:set mail_domain --value="uber.space"
-  php ~/html/occ config:system:set mail_from_address --value="$USER"
-  php ~/html/occ config:system:set mail_smtpmode --value="sendmail"
-  php ~/html/occ config:system:set mail_sendmailmode --value="pipe"
+  ncc config:system:set mail_domain --value="uber.space"
+  ncc config:system:set mail_from_address --value="$USER"
+  ncc config:system:set mail_smtpmode --value="sendmail"
+  ncc config:system:set mail_sendmailmode --value="pipe"
 
-  php ~/html/occ config:system:set htaccess.RewriteBase --value='/'
-  php ~/html/occ maintenance:update:htaccess
+  ncc config:system:set htaccess.RewriteBase --value='/'
+  ncc maintenance:update:htaccess
 
-  echo "*/5  *  *  *  * php -f $HOME/html/cron.php > $HOME/logs/nextcloud-cron.log 2>&1" |
+  echo "*/5  *  *  *  * sleep $(( 1 + RANDOM % 60 )); php -f $HOME/html/cron.php > $HOME/logs/nextcloud-cron.log 2>&1" |
     crontab -
-  php ~/html/occ background:cron
+  ncc background:cron
 
-  php ~/html/occ config:system:set memcache.local --value='\OC\Memcache\APCu'
-  php ~/html/occ config:system:set default_phone_region --value='DE'
+  ncc config:system:set memcache.local --value='\OC\Memcache\APCu'
+  ncc config:system:set default_phone_region --value='DE'
 
   setup_redis
   install_notify_push
   install_nextcloud_updater
-  install_ncc
 
   /usr/sbin/restorecon -R ~/html
 
-  printf "If you want to use another domain read:\n https://lab.uberspace.de/guide_nextcloud.html#set-the-trusted-domain\n"
+  printf "If you want to use another domain read:\n https://lab.uberspace.de/guide_nextcloud/#set-the-trusted-domain\n"
   printf "You can now access your Nextcloud by directing you Browser to: \n https://%s \n" "$trusted_domain"
+}
+
+function uninstall_nextcloud
+{
+  unset_critical_section
+  if ! yes-no_question "Do you want to keep the Nextcloud user files?"
+  then rm -r ~/nextcloud_data
+  fi
+  if test -f ~/etc/services.d/notify_push.ini
+  then
+    supervisorctl stop notify_push
+    rm ~/etc/services.d/notify_push.ini
+    supervisorctl reread
+    supervisorctl update
+  fi
+  if test -f ~/etc/services.d/redis.ini
+  then
+    supervisorctl stop redis
+    rm ~/etc/services.d/redis.ini
+    rm -r ~/.redis
+    supervisorctl reread
+    supervisorctl update
+  fi
+  rm -r ~/html/* ~/html/.htaccess ~/html/.user.ini
+  mysql --verbose --execute="DROP DATABASE ${USER}_nextcloud"
+  rm ~/bin/ncc ~/bin/nextcloud-update
+  unlink ~/bin/notify_push
+  unlink ~/logs/nextcloud.log
+  unlink ~/logs/nextcloud-updater.log
+  set_critical_section
 }
 
 function process_parameters
@@ -75,6 +121,13 @@ function process_parameters
         shift
         VERSION="$1"
         shift
+      ;;
+      uninstall )
+        echo "This command tries to revert the $APP_NAME installation, it will delete all of its scripts, service config, ~/nextcloud_data directory with all contents and drops the database."
+        if yes-no_question "Do you really want to do this?"
+        then uninstall_nextcloud
+        fi
+        exit 0
       ;;
       * )
         echo "$1 can not be processed, exiting script"
@@ -162,17 +215,17 @@ end_of_content
   supervisorctl reread
   supervisorctl update
   supervisorctl status
-  php ~/html/occ config:system:set redis host --value="${HOME}/.redis/sock"
-  php ~/html/occ config:system:set redis port --value=0
-  php ~/html/occ config:system:set redis timeout --value=1.5
-  php ~/html/occ config:system:set filelocking.enabled --value='true'
-  php ~/html/occ config:system:set memcache.locking --value='\OC\Memcache\Redis'
-  php ~/html/occ config:system:set memcache.distributed --value='\OC\Memcache\Redis'
+  ncc config:system:set redis host --value="${HOME}/.redis/sock"
+  ncc config:system:set redis port --value=0
+  ncc config:system:set redis timeout --value=1.5
+  ncc config:system:set filelocking.enabled --value='true'
+  ncc config:system:set memcache.locking --value='\OC\Memcache\Redis'
+  ncc config:system:set memcache.distributed --value='\OC\Memcache\Redis'
 }
 
 function install_notify_push
 {
-  php ~/html/occ app:install notify_push
+  ncc app:install notify_push
   chmod u+x --verbose ~/html/apps/notify_push/bin/x86_64/notify_push
   ln --symbolic --verbose "$HOME"/html/apps/notify_push/bin/x86_64/notify_push ~/bin/notify_push
   touch ~/etc/services.d/notify_push.ini
@@ -191,8 +244,8 @@ end_of_content
   trusted_proxy=$(ip route | 
     tail --lines 1 |    ## filter last line
     awk '{print $9}')   ## filter the last (9.) string from that line, it is the proxy ip
-  php ~/html/occ config:system:set trusted_proxies 0 --value="$trusted_proxy"
-  php ~/html/occ notify_push:setup https://"$trusted_domain"/push
+  ncc config:system:set trusted_proxies 0 --value="$trusted_proxy"
+  ncc notify_push:setup https://"$trusted_domain"/push
 }
 
 function install_ncc
@@ -211,23 +264,28 @@ function install_nextcloud_updater
   cat << 'end_of_content' > ~/bin/nextcloud-update
 #!/usr/bin/env bash
 
-APP_LOCATION=$HOME/html
+APP_LOCATION=~/html
+
+function ncc
+{
+  php $APP_LOCATION/occ "$@"
+}
 
 ## Updater automatically works in maintenance:mode.
 ## Use the Uberspace backup system for files and database if you need to roll back.
 ## The Nextcloud updater creates backups only to safe base and app code data and config files
 ## so it takes ressources you might need for your productive data.
 ## Deactivate NC-updater Backups with --no-backup
-php "$APP_LOCATION"/updater/updater.phar --no-backup --no-interaction
+php $APP_LOCATION/updater/updater.phar --no-backup --no-interaction
 
 ## database optimisations
-php "$APP_LOCATION"/occ db:add-missing-primary-keys --no-interaction
-php "$APP_LOCATION"/occ db:add-missing-columns --no-interaction
-php "$APP_LOCATION"/occ db:add-missing-indices --no-interaction
-php "$APP_LOCATION"/occ db:convert-filecache-bigint --no-interaction
+ncc db:add-missing-primary-keys --no-interaction
+ncc db:add-missing-columns --no-interaction
+ncc db:add-missing-indices --no-interaction
+ncc db:convert-filecache-bigint --no-interaction
 
-php "$APP_LOCATION"/occ app:update --all
-/usr/sbin/restorecon -R "$APP_LOCATION"
+ncc app:update --all
+/usr/sbin/restorecon -R $APP_LOCATION
 
 if test -f ~/etc/services.d/notify_push.ini
 then supervisorctl restart notify_push
@@ -264,16 +322,16 @@ function main
 
   if [[ -n $VERSION ]]
   then
-    echo "This script installs Nextcloud $VERSION"
+    echo "This script installs $APP_NAME $VERSION"
     echo "We recommend to use the latest release."
     ## This feature is mainly used to install older versions and then test the update script.
   else
-    echo "This script installs the latest release of Nextcloud"
+    echo "This script installs the latest release of $APP_NAME"
     echo "and assumes a newly created Uberspace with default settings."
   fi
   echo "Do not run this script if you already use your Uberspace for other apps!"
 
-  if yes-no_question "Do you want to execute this installer for Nextcloud?"
+  if yes-no_question "Do you want to execute this installer for $APP_NAME?"
   then install_nextcloud
   fi
 
