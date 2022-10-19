@@ -163,8 +163,8 @@ function add_domain
 
 function setup_php
 {
-  uberspace tools version use php 8.0
   echo "Applying relevant PHP settings for Nextcloud"
+  uberspace tools version use php 8.1
   touch ~/etc/php.d/opcache.ini
   cat << end_of_content > ~/etc/php.d/opcache.ini
 opcache.enable=1
