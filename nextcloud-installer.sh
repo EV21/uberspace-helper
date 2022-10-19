@@ -42,12 +42,13 @@ function install_nextcloud
   echo "Installing Nextcloud"
   install_ncc
   ncc maintenance:install \
-    --admin-user "${NEXTCLOUD_ADMIN_USER}" \
-    --admin-pass "${NEXTCLOUD_ADMIN_PASS}" \
-    --database 'mysql' --database-name "${USER}_nextcloud" \
-    --database-user "${USER}" \
-    --database-pass "${MYSQL_PASSWORD}" \
-    --data-dir "${HOME}/nextcloud_data"
+    --admin-user="${NEXTCLOUD_ADMIN_USER}" \
+    --admin-pass="${NEXTCLOUD_ADMIN_PASS}" \
+    --database='mysql' \
+    --database-name="${USER}_nextcloud" \
+    --database-user="${USER}" \
+    --database-pass="${MYSQL_PASSWORD}" \
+    --data-dir="${HOME}/nextcloud_data"
 
   ncc config:system:set trusted_domains 0 --value="$trusted_domain"
   ncc config:system:set overwrite.cli.url --value="https://$trusted_domain"
