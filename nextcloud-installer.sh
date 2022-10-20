@@ -252,9 +252,9 @@ end_of_content
 function install_ncc
 {
   touch ~/bin/ncc
-  cat << 'end_of_content' > ~/bin/ncc
+  cat << end_of_content > ~/bin/ncc
 #!/usr/bin/env bash
-php ~/html/occ "$@"
+exec php /var/www/virtual/\$USER/html/occ "\$@"
 end_of_content
   chmod u+x ~/bin/ncc
 }
