@@ -252,16 +252,14 @@ end_of_content
 function install_ncc
 {
   touch ~/bin/ncc
-  cat << end_of_content > ~/bin/ncc
+  cat << 'end_of_content' > ~/bin/ncc
 #!/usr/bin/env bash
-exec php /var/www/virtual/\$USER/html/occ "\$@"
+exec php /var/www/virtual/$USER/html/occ "$@"
 end_of_content
   chmod u+x ~/bin/ncc
   chmod u+x ~/html/occ
   ncc _completion --generate-hook --program=ncc > ~/_nextcloud_completion
   echo "source \$HOME/_nextcloud_completion" >> ~/.bash_profile
-  # shellcheck source=/dev/null
-  source ~/.bash_profile
 }
 
 function install_nextcloud_updater
