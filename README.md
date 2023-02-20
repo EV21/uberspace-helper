@@ -56,3 +56,37 @@ Connect via SSH to your Uberspace an then run:
 ```sh
 bash -c "$(wget -q -O - https://github.com/EV21/uberspace-helper/raw/main/gitea-installer.sh)"
 ```
+
+```console
+[isabell@stardust ~]$ bash -c "$(wget -q -O - https://sh.ev21.de/uberspace/gitea-installer.sh)"
+This script installs the latest release of Gitea
+and assumes a newly created Uberspace with default settings.
+The following files and directories will be created:
+/home/ubertest
+├── bin
+│   ├── [-rwxrw-r--] gitea (wrapper script)
+│   └── [-rwxrw-r--] gitea-update
+├── etc
+│   ├── services.d
+│   │   └── gitea.ini
+│   └── ...
+├── gitea
+│   ├── custom
+│   │   └── conf
+│   │       └── app.ini (configuration file)
+│   ├── data
+│   └── [-rwxrw-r--] gitea (binary file)
+└── ...
+Do not run this script if you already use your Uberspace for other apps!
+Do you want to execute this installer for Gitea? (y/n) y
+Installing Gitea 1.18.4
+Please set your Gitea login credentials.
+Gitea admin user: AdminUserName
+Your password input will not be visible.
+Gitea admin password:
+Gitea admin password confirmation:
+... some magic moments later
+You can now access your Gitea by directing you browser to:
+ https://isabell.uber.space
+[isabell@stardust ~]$
+```
