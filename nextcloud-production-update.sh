@@ -146,7 +146,7 @@ function process_parameters
 function version_lower_than
 {
   test "$(echo "$@" |
-    tr " " "n" |
+    tr " " "\n" |
     sort --version-sort --reverse |
     head --lines=1)" != "$1"
 }
@@ -163,7 +163,7 @@ function is_data_used_in_nextcloud_directory
   fi
 }
 
-function yes-no_question
+function yes_no_question
 {
   local question=$1
   while true
@@ -219,7 +219,7 @@ function main
     then
       echo "There is a new point release version available."
       echo "Doing update from $CURRENT_VERSION to $LATEST_VERSION"
-      if no_interaction_mode || yes-no_question "Do you want to start the update procedure?"
+      if no_interaction_mode || yes_no_question "Do you want to start the update procedure?"
       then do_update_procedure
       fi
     fi

@@ -27,11 +27,12 @@ function do_update_procedure
   supervisorctl status
 }
 
-## this is a helper function to compare two versions as a "lower than" operator
-function version_lt
+## version_lower_than A B
+# returns whether A < B
+function version_lower_than
 {
   test "$(echo "$@" |
-    tr " " "n" |
+    tr " " "\n" |
     sort --version-sort --reverse |
     head --lines=1)" != "$1"
 }
@@ -47,7 +48,7 @@ function main
     echo "Your $APP_NAME is already up to date."
     echo "You are running $APP_NAME $LOCAL_VERSION"
   else
-    if version_lt "$LOCAL_VERSION" "$LATEST_VERSION"
+    if version_lower_than "$LOCAL_VERSION" "$LATEST_VERSION"
     then
       echo "There is a new version available."
       echo "Doing update from $LOCAL_VERSION to $LATEST_VERSION"

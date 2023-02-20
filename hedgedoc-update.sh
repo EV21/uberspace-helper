@@ -45,11 +45,12 @@ function yes-no_question
   done
 }
 
-## this is a helper function to compare two versions as a "lower than" operator
-function version_lt
+## version_lower_than A B
+# returns whether A < B
+function version_lower_than
 {
   test "$(echo "$@" |
-    tr " " "n" |
+    tr " " "\n" |
     sort --version-sort --reverse |
     head --lines=1)" != "$1"
 }
@@ -58,7 +59,7 @@ function main
 {
   if [ "$LOCAL_VERSION" = "$LATEST_VERSION" ]
   then echo "Your HedgeDoc is already up to date."
-  elif version_lt "$LOCAL_VERSION" "$LATEST_VERSION"
+  elif version_lower_than "$LOCAL_VERSION" "$LATEST_VERSION"
   then
     echo "There is a new Version available of $APP_NAME"
     echo "The latest Version is $LATEST_VERSION"

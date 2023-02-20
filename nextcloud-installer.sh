@@ -8,7 +8,6 @@ function install_nextcloud
   read -r -p "Nextcloud admin user: " NEXTCLOUD_ADMIN_USER
   read -r -p "Nextcloud admin password: " NEXTCLOUD_ADMIN_PASS
   trusted_domain="$USER.uber.space"
-  #setup_domains
   setup_php
   # simply get the first password string from ~/.my.cnf
   MYSQL_PASSWORD_STR=$(grep --max-count=1 password= ~/.my.cnf)
@@ -85,7 +84,7 @@ function install_nextcloud
 function uninstall_nextcloud
 {
   unset_critical_section
-  if ! yes-no_question "Do you want to keep the Nextcloud user files?"
+  if ! yes_no_question "Do you want to keep the Nextcloud user files?"
   then rm -r ~/nextcloud_data
   fi
   if test -f ~/etc/services.d/notify_push.ini
@@ -103,7 +102,7 @@ function uninstall_nextcloud
     supervisorctl reread
     supervisorctl update
   fi
-  rm -r ~/html/* ~/html/.htaccess ~/html/.user.ini
+  rm -r ~/html/* ~/html/.htaccess ~/html/.user.ini ~/_nextcloud_completion
   mysql --verbose --execute="DROP DATABASE ${USER}_nextcloud"
   rm ~/bin/ncc ~/bin/nextcloud-update
   unlink ~/bin/notify_push
@@ -125,7 +124,7 @@ function process_parameters
       ;;
       uninstall )
         echo "This command tries to revert the $APP_NAME installation, it will delete all of its scripts, service config, ~/nextcloud_data directory with all contents and drops the database."
-        if yes-no_question "Do you really want to do this?"
+        if yes_no_question "Do you really want to do this?"
         then uninstall_nextcloud
         fi
         exit 0
@@ -144,22 +143,6 @@ function get_version_name
   then echo "nextcloud-$VERSION"
   else echo "latest"
   fi
-}
-
-function setup_domains
-{
-  echo "You currently have configured the following domains:"
-  uberspace web domain list
-  if yes-no_question "Do you want to add another domain to the web configuration of your uberspace?"
-  then add_domain
-  fi
-}
-
-function add_domain
-{
-  read -rp "Domain: " DOMAIN
-  uberspace web domain add "$DOMAIN"
-  trusted_domain=$DOMAIN
 }
 
 function setup_php
@@ -298,7 +281,7 @@ end_of_content
   chmod u+x ~/bin/nextcloud-update
 }
 
-function yes-no_question
+function yes_no_question
 {
   local question=$1
   while true
@@ -335,7 +318,7 @@ function main
   fi
   echo "Do not run this script if you already use your Uberspace for other apps!"
 
-  if yes-no_question "Do you want to execute this installer for $APP_NAME?"
+  if yes_no_question "Do you want to execute this installer for $APP_NAME?"
   then install_nextcloud
   fi
 

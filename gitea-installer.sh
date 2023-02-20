@@ -2,7 +2,7 @@
 
 APP_NAME=Gitea
 DEFAULT_PORT=3000
-GITEA_BIN_LOCATION=$HOME/gitea/gitea
+GITEA_BINARY=$HOME/gitea/gitea
 TMP_LOCATION=$HOME/tmp
 PGP_KEY_FINGERPRINT=7C9E68152594688862D62AF62D9AE806EC1592E2
 ORG=go-gitea # Organisation or GitHub user
@@ -18,7 +18,7 @@ function install_gitea
   if [[ -n $USE_VERSION ]]
   then GITHUB_API_URL=https://api.github.com/repos/$ORG/$REPO/releases/tags/v$USE_VERSION
   fi
-  get_download_url
+  set_download_url
   echo "Installing $APP_NAME $LATEST_VERSION"
   echo "Please set your $APP_NAME login credentials."
   read -r -p "$APP_NAME admin user: " ADMIN_USER
@@ -26,23 +26,23 @@ function install_gitea
   wget --quiet --progress=bar:force --output-document "$TMP_LOCATION"/gitea "$DOWNLOAD_URL"
   verify_file
   mkdir --parents ~/gitea/custom/conf/
-  mv --verbose "$TMP_LOCATION"/gitea "$GITEA_BIN_LOCATION"
-  chmod u+x --verbose "$GITEA_BIN_LOCATION"
-  #ln --symbolic --verbose "$GITEA_BIN_LOCATION" ~/bin/gitea
+  mv --verbose "$TMP_LOCATION"/gitea "$GITEA_BINARY"
+  chmod u+x --verbose "$GITEA_BINARY"
+  #ln --symbolic --verbose "$GITEA_BINARY" ~/bin/gitea
   ## gitea does not recognize its real path, maybe use a wrapper for this
   install_gitea_wrapper
   ln --symbolic --verbose ~/.ssh ~/gitea/.ssh
   create_app_ini
   mysql --verbose --execute="CREATE DATABASE ${USER}_gitea"
   echo "The database initialisation may take a while ..."
-  $GITEA_BIN_LOCATION migrate
+  $GITEA_BINARY migrate
   create_gitea_daemon_config
   supervisorctl reread
   supervisorctl update
   supervisorctl status
   sleep 5
   supervisorctl status
-  $GITEA_BIN_LOCATION admin user create \
+  $GITEA_BINARY admin user create \
     --username "${ADMIN_USER}" \
     --password "${ADMIN_PASS}" \
     --email "${USER}"@uber.space \
@@ -60,13 +60,9 @@ function uninstall_gitea
 {
   # If some files do not exist there may be some errors
   unset_critical_section
-  $GITEA_BIN_LOCATION manager flush-queues
-  gitea_pid=$(supervisorctl pid gitea)
-  echo "Process-ID is $gitea_pid"
+  fix_stop_signal
+  $GITEA_BINARY manager flush-queues
   supervisorctl stop gitea
-  if (ps --pid "$gitea_pid" > /dev/null)
-  then echo "still running! - killing it..."; kill "$gitea_pid"
-  fi
   sleep 30
   mysql --verbose --execute="DROP DATABASE ${USER}_gitea"
   rm ~/etc/services.d/gitea.ini
@@ -75,7 +71,19 @@ function uninstall_gitea
   rm ~/bin/gitea-update
   supervisorctl reread
   supervisorctl update
+  uberspace web backend set / --apache
   set_critical_section
+}
+
+# This is only relevant for the uninstaller for broken old installations
+function fix_stop_signal
+{
+  if (grep --quiet HUP "$HOME"/etc/services.d/gitea.ini)
+  then
+    sed --in-place '/HUP/d' "$HOME"/etc/services.d/gitea.ini
+    supervisorctl reread
+    supervisorctl update
+  fi
 }
 
 function process_parameters
@@ -91,7 +99,7 @@ function process_parameters
       ;;
       uninstall )
         echo "This command tries to revert the $APP_NAME installation, it will delete all of its scripts, service config, ~/gitea directory with all contents and drop the database"
-        if yes-no_question "Do you really want to do this?"
+        if yes_no_question "Do you really want to do this?"
         then uninstall_gitea
         fi
         exit 0
@@ -114,7 +122,7 @@ function install_gitea_wrapper
 export GITEA_WORK_DIR=$HOME/gitea
 
 FIRST_PARAMETER="$1"
-GITEA_BIN_LOCATION=$HOME/gitea/gitea
+GITEA_BINARY=$HOME/gitea/gitea
 
 case $FIRST_PARAMETER in
   start | stop | restart | status )
@@ -133,12 +141,12 @@ case $FIRST_PARAMETER in
     ## this command creates a backup zip file with db, repos, config, log, data
     ## restoring the backup is more difficult
     ## read: https://docs.gitea.io/en-us/backup-and-restore/#restore-command-restore
-    $GITEA_BIN_LOCATION dump --tempdir $HOME/tmp
+    $GITEA_BINARY dump --tempdir $HOME/tmp
     exit $?
   ;;
 esac
 
-$GITEA_BIN_LOCATION "$@"
+$GITEA_BINARY "$@"
 exit $?
 end_of_content
   chmod u+x --verbose ~/bin/gitea
@@ -146,7 +154,7 @@ end_of_content
 
 function create_app_ini
 {
-  SECRET_KEY=$($GITEA_BIN_LOCATION generate secret SECRET_KEY)
+  SECRET_KEY=$($GITEA_BINARY generate secret SECRET_KEY)
   cat << end_of_content > ~/gitea/custom/conf/app.ini
 [server]
 DOMAIN               = $USER.uber.space
@@ -192,7 +200,7 @@ autorestart=true
 end_of_content
 }
 
-function get_download_url
+function set_download_url
 {
   curl --silent "$GITHUB_API_URL" > "$TMP_LOCATION"/github_api_response.json
   TAG_NAME=$(jq --raw-output '.tag_name' "$TMP_LOCATION"/github_api_response.json)
@@ -201,7 +209,7 @@ function get_download_url
     grep --max-count=1 "linux-amd64")
 }
 
-function get_signature_file
+function download_signature_file
 {
   SIGNATURE_FILE_URL=$(jq --raw-output '.assets[].browser_download_url' "$TMP_LOCATION"/github_api_response.json |
     grep "linux-amd64.asc")
@@ -211,10 +219,11 @@ function get_signature_file
 
 function verify_file
 {
-  get_signature_file
+  download_signature_file
 
-  ## downloading public key if it does not already exist
-  if ! gpg --fingerprint $PGP_KEY_FINGERPRINT
+  ## downloading public key if it does NOT already exist OR if it is expired
+  if ! (gpg --fingerprint $PGP_KEY_FINGERPRINT) ||
+    (gpg --fingerprint $PGP_KEY_FINGERPRINT | grep expired)
   then
     ## currently the key download via gpg does not work on Uberspace
     #gpg --keyserver keys.openpgp.org --recv $PGP_KEY_FINGERPRINT
@@ -237,7 +246,7 @@ function install_update_script
 #!/usr/bin/env bash
 
 APP_NAME=Gitea
-GITEA_LOCATION=$HOME/gitea/gitea
+GITEA_BINARY=$HOME/gitea/gitea
 TMP_LOCATION=$HOME/tmp
 PGP_KEY_FINGERPRINT=7C9E68152594688862D62AF62D9AE806EC1592E2
 
@@ -247,73 +256,71 @@ GITHUB_API_URL=https://api.github.com/repos/$ORG/$REPO/releases/latest
 
 function do_update_procedure
 {
-  $GITEA_LOCATION manager flush-queues
-  gitea_pid=$(supervisorctl pid gitea)
-  echo "Process-ID is $gitea_pid"
+  $GITEA_BINARY manager flush-queues
   supervisorctl stop gitea
-  if [[ $gitea_pid -gt 0 ]] && (ps --pid "$gitea_pid" > /dev/null)
-  then echo "still running! - killing it..."; kill "$gitea_pid"
-  fi
-  if (lsof -nP -iTCP:3000 -sTCP:LISTEN)
-  then echo "port 3000 is still in use, abbort"; exit 1
-  fi
   wget --quiet --progress=bar:force --output-document "$TMP_LOCATION"/gitea "$DOWNLOAD_URL"
   verify_file
-  mv --verbose "$TMP_LOCATION"/gitea "$GITEA_LOCATION"
-  chmod u+x --verbose "$GITEA_LOCATION"
+  mv --verbose "$TMP_LOCATION"/gitea "$GITEA_BINARY"
+  chmod u+x --verbose "$GITEA_BINARY"
   supervisorctl start gitea
   supervisorctl status gitea
 }
 
-function get_local_version
+function set_local_version
 {
-  LOCAL_VERSION=$($GITEA_LOCATION --version |
+  LOCAL_VERSION=$($GITEA_BINARY --version |
     awk '{print $3}')
 }
 
-function get_latest_version
+function set_latest_version
 {
-  curl --silent $GITHUB_API_URL > $TMP_LOCATION/github_api_response.json
-  TAG_NAME=$(jq --raw-output '.tag_name' $TMP_LOCATION/github_api_response.json)
+  curl --silent $GITHUB_API_URL > "$TMP_LOCATION"/github_api_response.json
+  TAG_NAME=$(jq --raw-output '.tag_name' "$TMP_LOCATION"/github_api_response.json)
   LATEST_VERSION=${TAG_NAME:1}
-  DOWNLOAD_URL=$(jq --raw-output '.assets[].browser_download_url' $TMP_LOCATION/github_api_response.json |
+  DOWNLOAD_URL=$(jq --raw-output '.assets[].browser_download_url' "$TMP_LOCATION"/github_api_response.json |
     grep --max-count=1 "linux-amd64")
 }
 
-function get_signature_file
+function download_signature_file
 {
-  SIGNATURE_FILE_URL=$(jq --raw-output '.assets[].browser_download_url' $TMP_LOCATION/github_api_response.json |
+  SIGNATURE_FILE_URL=$(jq --raw-output '.assets[].browser_download_url' "$TMP_LOCATION"/github_api_response.json |
     grep "linux-amd64.asc")
-  rm $TMP_LOCATION/github_api_response.json
-  wget --quiet --progress=bar:force --output-document $TMP_LOCATION/gitea.asc "$SIGNATURE_FILE_URL"
+  rm "$TMP_LOCATION"/github_api_response.json
+  wget --quiet --progress=bar:force --output-document "$TMP_LOCATION"/gitea.asc "$SIGNATURE_FILE_URL"
 }
 
 function verify_file
 {
-  get_signature_file
+  download_signature_file
 
-  ## downloading public key if it does not already exist
-  if ! gpg --fingerprint $PGP_KEY_FINGERPRINT
+  ## downloading public key if it does NOT already exist OR if it is expired
+  if ! gpg --fingerprint $PGP_KEY_FINGERPRINT ||
+    (gpg --fingerprint $PGP_KEY_FINGERPRINT | grep expired)
   then
     ## currently the key download via gpg does not work on Uberspace
     #gpg --keyserver keys.openpgp.org --recv $PGP_KEY_FINGERPRINT
     curl --silent https://keys.openpgp.org/vks/v1/by-fingerprint/$PGP_KEY_FINGERPRINT | gpg --import
-    echo "$PGP_KEY_FINGERPRINT:6:" | gpg --import-ownertrust
   fi
 
-  if gpg --verify $TMP_LOCATION/gitea.asc $TMP_LOCATION/gitea
-  then rm $TMP_LOCATION/gitea.asc; return 0
+  if ! gpg --export-ownertrust | grep --quiet $PGP_KEY_FINGERPRINT:6:
+  then echo "$PGP_KEY_FINGERPRINT:6:" | gpg --import-ownertrust
+  fi
+
+  if gpg --verify "$TMP_LOCATION"/gitea.asc "$TMP_LOCATION"/gitea
+  then rm "$TMP_LOCATION"/gitea.asc; return 0
   else echo "gpg verification results in a BAD signature"; exit 1
   fi
 }
 
-## version_lower_than A B returns whether A < B
+# version_lower_than A B
+# returns whether A < B
 function version_lower_than
 {
-  test "$(echo "$@" |
-    tr " " "n" |
-    sort --version-sort --reverse |
-    head --lines=1)" != "$1"
+  test "$(echo "$@" |                 # get all version arguments
+    tr " " "\n" |                     # replace `space` with `new line`
+    sed '/alpha/d; /beta/d; /rc/d' |  # remove pre-release versions (version-sort interprets suffixes as patch versions)
+    sort --version-sort --reverse |   # latest version will be sorted to line 1
+    head --lines=1)" != "$1"          # filter line 1 and compare it to A
 }
 
 function fix_stop_signal
@@ -326,27 +333,32 @@ function fix_stop_signal
   fi
 }
 
-function main
+function update_available
 {
-  fix_stop_signal
-  get_local_version
-  get_latest_version
-
-  if [ "$LOCAL_VERSION" = "$LATEST_VERSION" ]
-  then
-    echo "Your $APP_NAME is already up to date."
-    echo "You are running $APP_NAME $LOCAL_VERSION"
-  else
-    if version_lower_than "$LOCAL_VERSION" "$LATEST_VERSION"
-    then
-      echo "There is a new version available."
-      echo "Doing update from $LOCAL_VERSION to $LATEST_VERSION"
-      do_update_procedure
-    fi
+  set_local_version
+  set_latest_version
+  if version_lower_than "$LOCAL_VERSION" "$LATEST_VERSION"
+  then return 0
+  else return 1
   fi
 }
 
-main "${@}"
+function main
+{
+  fix_stop_signal
+
+  if update_available
+  then
+    echo "There is a new version available."
+    echo "Doing update from $LOCAL_VERSION to $LATEST_VERSION"
+    do_update_procedure
+  else
+    echo "Your $APP_NAME is already up to date."
+    echo "You are running $APP_NAME $LOCAL_VERSION"
+  fi
+}
+
+main "$@"
 exit $?
 end_of_content
   chmod u+x --verbose ~/bin/gitea-update
@@ -354,26 +366,26 @@ end_of_content
 
 function echo_tree
 {
-cat << 'end_of_content'
-.
+cat << end_of_content
+/home/$USER
 ├── bin
-│   ├── [-rwxrw-r--] gitea
-│   └── [-rwxrw-r--] gitea-update
+│   ├── [-rwxrw-r--] gitea (wrapper script)
+│   └── [-rwxrw-r--] gitea-update
 ├── etc
-│   ├── services.d
-│   │   └── gitea.ini
-│   └── ...
+│   ├── services.d
+│   │   └── gitea.ini
+│   └── ...
 ├── gitea
-│   ├── custom
-│   │   └── conf
-│   │       └── app.ini
-│   ├── data
-│   └── [-rwxrw-r--] gitea
+│   ├── custom
+│   │   └── conf
+│   │       └── app.ini (configuration file)
+│   ├── data
+│   └── [-rwxrw-r--] gitea (binary file)
 └── ...
 end_of_content
 }
 
-function yes-no_question
+function yes_no_question
 {
   local question=$1
   while true
@@ -401,13 +413,15 @@ function main
 
   echo "This script installs the latest release of $APP_NAME"
   echo "and assumes a newly created Uberspace with default settings."
+  echo "The following files and directories will be created:"
+  echo_tree
   echo "Do not run this script if you already use your Uberspace for other apps!"
 
   if (lsof -nP -iTCP:3000 -sTCP:LISTEN)
   then echo "Port 3000 is already in use, abbort"; exit 1
   fi
 
-  if yes-no_question "Do you want to execute this installer for $APP_NAME?"
+  if yes_no_question "Do you want to execute this installer for $APP_NAME?"
   then install_gitea
   fi
 
