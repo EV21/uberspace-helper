@@ -22,7 +22,12 @@ function install_gitea
   echo "Installing $APP_NAME $LATEST_VERSION"
   echo "Please set your $APP_NAME login credentials."
   read -r -p "$APP_NAME admin user: " ADMIN_USER
-  read -r -p "$APP_NAME admin password: " ADMIN_PASS
+  ask_for_password
+  while [ -z "$ADMIN_PASS" ] || [ "$ADMIN_PASS" != "$ADMIN_PASS_CONFIRMATION" ]
+  do
+    echo That was not correct, try again
+    ask_for_password
+  done
   wget --quiet --progress=bar:force --output-document "$TMP_LOCATION"/gitea "$DOWNLOAD_URL"
   verify_file
   mkdir --parents ~/gitea/custom/conf/
@@ -53,7 +58,7 @@ function install_gitea
   install_update_script
   echo "This is the file structure for this app"
   echo_tree
-  printf "You can now access your $APP_NAME by directing you Browser to: \n https://%s.uber.space \n" "$USER"
+  printf "You can now access your $APP_NAME by directing you browser to: \n https://%s.uber.space \n" "$USER"
 }
 
 function uninstall_gitea
@@ -73,6 +78,15 @@ function uninstall_gitea
   supervisorctl update
   uberspace web backend set / --apache
   set_critical_section
+}
+
+function ask_for_password
+{
+  echo "Your password input will not be visible."
+  read -s -r -p "$APP_NAME admin password: " ADMIN_PASS
+  echo
+  read -s -r -p "$APP_NAME admin password confirmation: " ADMIN_PASS_CONFIRMATION
+  echo
 }
 
 # This is only relevant for the uninstaller for broken old installations
