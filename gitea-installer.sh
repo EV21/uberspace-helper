@@ -58,7 +58,7 @@ function install_gitea
   install_update_script
   echo "This is the file structure for this app"
   echo_tree
-  printf "You can now access your $APP_NAME by directing you browser to: \n https://%s.uber.space \n" "$USER"
+  printf "You can now access your $APP_NAME by directing your browser to: \n https://%s.uber.space \n" "$USER"
 }
 
 function uninstall_gitea

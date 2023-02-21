@@ -62,7 +62,7 @@ bash -c "$(wget -q -O - https://github.com/EV21/uberspace-helper/raw/main/gitea-
 This script installs the latest release of Gitea
 and assumes a newly created Uberspace with default settings.
 The following files and directories will be created:
-/home/ubertest
+/home/isabell
 ├── bin
 │   ├── [-rwxrw-r--] gitea (wrapper script)
 │   └── [-rwxrw-r--] gitea-update
@@ -86,7 +86,7 @@ Your password input will not be visible.
 Gitea admin password:
 Gitea admin password confirmation:
 ... some magic moments later
-You can now access your Gitea by directing you browser to:
+You can now access your Gitea by directing your browser to:
  https://isabell.uber.space
 [isabell@stardust ~]$
 ```
