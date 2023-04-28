@@ -19,7 +19,7 @@ function install_gitea
   read -r -p "$APP_NAME admin user: " ADMIN_USER
   ask_for_password
   echo "Installing $APP_NAME $INSTALL_VERSION"
-  wget --quiet --progress=bar:force --output-document "$TMP_LOCATION"/gitea "$DOWNLOAD_URL"
+  curl --location --progress-bar --output "$TMP_LOCATION"/gitea "$DOWNLOAD_URL"
   verify_file
   mkdir --parents ~/gitea/custom/conf/
   mv --verbose "$TMP_LOCATION"/gitea "$GITEA_BINARY"
@@ -281,7 +281,7 @@ GITHUB_API_URL=https://api.github.com/repos/$ORG/$REPO/releases/latest
 
 function do_update_procedure
 {
-  wget --quiet --progress=bar:force --output-document "$TMP_LOCATION"/gitea "$DOWNLOAD_URL"
+  curl --location --progress-bar --output "$TMP_LOCATION"/gitea "$DOWNLOAD_URL"
   verify_file
   $GITEA_BINARY manager flush-queues
   supervisorctl stop gitea
