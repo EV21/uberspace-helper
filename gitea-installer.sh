@@ -18,7 +18,7 @@ function install_gitea
   echo "Please set your $APP_NAME login credentials."
   read -r -p "$APP_NAME admin user: " ADMIN_USER
   ask_for_password
-  echo "Installing $APP_NAME $INSTALL_VERSION"
+  echo "Download $APP_NAME $INSTALL_VERSION"
   curl --location --progress-bar --output "$TMP_LOCATION"/gitea "$DOWNLOAD_URL"
   verify_file
   mkdir --parents ~/gitea/custom/conf/
@@ -36,7 +36,8 @@ function install_gitea
   supervisorctl reread
   supervisorctl update gitea
   supervisorctl status gitea
-  sleep 5
+  echo "waiting 30 seconds ..."
+  sleep 30
   supervisorctl status gitea
   $GITEA_BINARY admin user create \
     --username "${ADMIN_USER}" \
