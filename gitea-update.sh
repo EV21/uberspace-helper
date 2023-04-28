@@ -11,12 +11,13 @@ GITHUB_API_URL=https://api.github.com/repos/$ORG/$REPO/releases/latest
 
 function do_update_procedure
 {
-  $GITEA_BINARY manager flush-queues
-  supervisorctl stop gitea
   wget --quiet --progress=bar:force --output-document "$TMP_LOCATION"/gitea "$DOWNLOAD_URL"
   verify_file
+  $GITEA_BINARY manager flush-queues
+  supervisorctl stop gitea
   mv --verbose "$TMP_LOCATION"/gitea "$GITEA_BINARY"
   chmod u+x --verbose "$GITEA_BINARY"
+  echo "$APP_NAME service takes 30 seconds to start"
   supervisorctl start gitea
   supervisorctl status gitea
 }
@@ -69,7 +70,7 @@ function verify_file
 
 # version_lower_than A B
 # returns whether A < B
-function version_lower_than
+function is_version_lower_than
 {
   test "$(echo "$@" |                 # get all version arguments
     tr " " "\n" |                     # replace `space` with `new line`
@@ -88,11 +89,11 @@ function fix_stop_signal
   fi
 }
 
-function update_available
+function is_update_available
 {
   set_local_version
   set_latest_version
-  if version_lower_than "$LOCAL_VERSION" "$LATEST_VERSION"
+  if is_version_lower_than "$LOCAL_VERSION" "$LATEST_VERSION"
   then return 0
   else return 1
   fi
@@ -102,7 +103,7 @@ function main
 {
   fix_stop_signal
 
-  if update_available
+  if is_update_available
   then
     echo "There is a new version available."
     echo "Doing update from $LOCAL_VERSION to $LATEST_VERSION"

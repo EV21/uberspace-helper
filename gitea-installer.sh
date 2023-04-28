@@ -15,19 +15,10 @@ MYSQL_PASSWORD=${MYSQL_PASSWORD_STR:9}
 
 function install_gitea
 {
-  if [[ -n $USE_VERSION ]]
-  then GITHUB_API_URL=https://api.github.com/repos/$ORG/$REPO/releases/tags/v$USE_VERSION
-  fi
-  set_download_url
-  echo "Installing $APP_NAME $LATEST_VERSION"
   echo "Please set your $APP_NAME login credentials."
   read -r -p "$APP_NAME admin user: " ADMIN_USER
   ask_for_password
-  while [ -z "$ADMIN_PASS" ] || [ "$ADMIN_PASS" != "$ADMIN_PASS_CONFIRMATION" ]
-  do
-    echo That was not correct, try again
-    ask_for_password
-  done
+  echo "Installing $APP_NAME $INSTALL_VERSION"
   wget --quiet --progress=bar:force --output-document "$TMP_LOCATION"/gitea "$DOWNLOAD_URL"
   verify_file
   mkdir --parents ~/gitea/custom/conf/
@@ -40,19 +31,20 @@ function install_gitea
   create_app_ini
   mysql --verbose --execute="CREATE DATABASE ${USER}_gitea"
   echo "The database initialisation may take a while ..."
-  $GITEA_BINARY migrate
+  $GITEA_BINARY migrate 1>/dev/null
   create_gitea_daemon_config
   supervisorctl reread
-  supervisorctl update
-  supervisorctl status
+  supervisorctl update gitea
+  supervisorctl status gitea
   sleep 5
-  supervisorctl status
+  supervisorctl status gitea
   $GITEA_BINARY admin user create \
     --username "${ADMIN_USER}" \
     --password "${ADMIN_PASS}" \
     --email "${USER}"@uber.space \
     --admin \
-    --config "/home/${USER}/gitea/custom/conf/app.ini"
+    --config "/home/${USER}/gitea/custom/conf/app.ini" \
+    1>/dev/null
   uberspace web backend set / --http --port $DEFAULT_PORT
   uberspace web backend list
   install_update_script
@@ -75,18 +67,23 @@ function uninstall_gitea
   rm ~/bin/gitea
   rm ~/bin/gitea-update
   supervisorctl reread
-  supervisorctl update
+  supervisorctl update gitea
   uberspace web backend set / --apache
   set_critical_section
 }
 
 function ask_for_password
 {
-  echo "Your password input will not be visible."
+  echo "Note: Your password input will not be visible."
   read -s -r -p "$APP_NAME admin password: " ADMIN_PASS
   echo
   read -s -r -p "$APP_NAME admin password confirmation: " ADMIN_PASS_CONFIRMATION
   echo
+  while [ -z "$ADMIN_PASS" ] || [ "$ADMIN_PASS" != "$ADMIN_PASS_CONFIRMATION" ]
+  do
+    echo That was not correct, try again
+    ask_for_password
+  done
 }
 
 # This is only relevant for the uninstaller for broken old installations
@@ -109,6 +106,9 @@ function process_parameters
       use )
         shift
         USE_VERSION="$1"
+        if [[ -n $USE_VERSION ]]
+        then GITHUB_API_URL=https://api.github.com/repos/$ORG/$REPO/releases/tags/v$USE_VERSION
+        fi
         shift
       ;;
       uninstall )
@@ -174,6 +174,7 @@ function create_app_ini
 DOMAIN               = $USER.uber.space
 ROOT_URL             = https://%(DOMAIN)s
 OFFLINE_MODE         = true ; Disables use of CDN for static files and Gravatar for profile pictures.
+LANDING_PAGE         = explore ; possible options are [home, explore, organizations, login, custom like /org/repo or url]
 LFS_START_SERVER     = true ; Enables Git LFS support
 
 [database]
@@ -188,6 +189,9 @@ MIN_PASSWORD_LENGTH = 8
 PASSWORD_COMPLEXITY = lower
 SECRET_KEY          = $SECRET_KEY
 
+[session]
+COOKIE_SECURE = true
+
 [service]
 DISABLE_REGISTRATION       = true ; security option, only admins can create new users.
 SHOW_REGISTRATION_BUTTON   = false
@@ -200,6 +204,9 @@ NO_REPLY_ADDRESS           = noreply.${USER}.uber.space
 ENABLED     = true
 MAILER_TYPE = sendmail
 FROM        = ${USER}@uber.space
+
+[other]
+SHOW_FOOTER_VERSION = false
 end_of_content
 }
 
@@ -214,11 +221,15 @@ autorestart=true
 end_of_content
 }
 
-function set_download_url
+function set_install_version
 {
   curl --silent "$GITHUB_API_URL" > "$TMP_LOCATION"/github_api_response.json
   TAG_NAME=$(jq --raw-output '.tag_name' "$TMP_LOCATION"/github_api_response.json)
-  LATEST_VERSION=${TAG_NAME:1}
+  INSTALL_VERSION=${TAG_NAME:1}
+}
+
+function set_download_url
+{
   DOWNLOAD_URL=$(jq --raw-output '.assets[].browser_download_url' "$TMP_LOCATION"/github_api_response.json |
     grep --max-count=1 "linux-amd64")
 }
@@ -270,12 +281,13 @@ GITHUB_API_URL=https://api.github.com/repos/$ORG/$REPO/releases/latest
 
 function do_update_procedure
 {
-  $GITEA_BINARY manager flush-queues
-  supervisorctl stop gitea
   wget --quiet --progress=bar:force --output-document "$TMP_LOCATION"/gitea "$DOWNLOAD_URL"
   verify_file
+  $GITEA_BINARY manager flush-queues
+  supervisorctl stop gitea
   mv --verbose "$TMP_LOCATION"/gitea "$GITEA_BINARY"
   chmod u+x --verbose "$GITEA_BINARY"
+  echo "$APP_NAME service takes 30 seconds to start"
   supervisorctl start gitea
   supervisorctl status gitea
 }
@@ -328,7 +340,7 @@ function verify_file
 
 # version_lower_than A B
 # returns whether A < B
-function version_lower_than
+function is_version_lower_than
 {
   test "$(echo "$@" |                 # get all version arguments
     tr " " "\n" |                     # replace `space` with `new line`
@@ -347,11 +359,11 @@ function fix_stop_signal
   fi
 }
 
-function update_available
+function is_update_available
 {
   set_local_version
   set_latest_version
-  if version_lower_than "$LOCAL_VERSION" "$LATEST_VERSION"
+  if is_version_lower_than "$LOCAL_VERSION" "$LATEST_VERSION"
   then return 0
   else return 1
   fi
@@ -361,7 +373,7 @@ function main
 {
   fix_stop_signal
 
-  if update_available
+  if is_update_available
   then
     echo "There is a new version available."
     echo "Doing update from $LOCAL_VERSION to $LATEST_VERSION"
@@ -425,7 +437,10 @@ function main
   set_critical_section
   process_parameters "$@"
 
-  echo "This script installs the latest release of $APP_NAME"
+  set_install_version
+  set_download_url
+
+  echo "This script installs $APP_NAME $INSTALL_VERSION"
   echo "and assumes a newly created Uberspace with default settings."
   echo "The following files and directories will be created:"
   echo_tree
@@ -435,7 +450,7 @@ function main
   then echo "Port 3000 is already in use, abbort"; exit 1
   fi
 
-  if yes_no_question "Do you want to execute this installer for $APP_NAME?"
+  if yes_no_question "Do you want to execute this installer for $APP_NAME $INSTALL_VERSION?"
   then install_gitea
   fi
 
