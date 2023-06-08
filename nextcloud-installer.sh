@@ -240,7 +240,10 @@ end_of_content
   supervisorctl update
   supervisorctl status
   uberspace web backend set /push --http --port 7867
-  uberspace web backend list
+  local fail_counter=0
+  while (uberspace web backend list | grep "/push http:7867 => NOT OK") && test $fail_counter -lt 5
+  do echo 'wait another 5 seconds for notify service'; sleep 5; ((fail_counter++))
+  done
   local trusted_proxy
   trusted_proxy=$(ip route | 
     tail --lines 1 |    ## filter last line
