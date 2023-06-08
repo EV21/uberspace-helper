@@ -6,7 +6,7 @@ function install_nextcloud
 {
   echo "Please set your Nextcloud login credentials."
   read -r -p "Nextcloud admin user: " NEXTCLOUD_ADMIN_USER
-  read -r -p "Nextcloud admin password: " NEXTCLOUD_ADMIN_PASS
+  ask_for_password
   trusted_domain="$USER.uber.space"
   setup_php
   # simply get the first password string from ~/.my.cnf
@@ -105,10 +105,25 @@ function uninstall_nextcloud
   rm -r ~/html/* ~/html/.htaccess ~/html/.user.ini ~/_nextcloud_completion
   mysql --verbose --execute="DROP DATABASE ${USER}_nextcloud"
   rm ~/bin/ncc ~/bin/nextcloud-update
+  sed --in-place '/_nextcloud_completion/d' ~/.bash_profile
   unlink ~/bin/notify_push
   unlink ~/logs/nextcloud.log
   unlink ~/logs/nextcloud-updater.log
   set_critical_section
+}
+
+function ask_for_password
+{
+  echo "Note: Your password input will not be visible."
+  read -s -r -p "$APP_NAME admin password: " NEXTCLOUD_ADMIN_PASS
+  echo
+  read -s -r -p "$APP_NAME admin password confirmation: " ADMIN_PASS_CONFIRMATION
+  echo
+  while [ -z "$NEXTCLOUD_ADMIN_PASS" ] || [ "$NEXTCLOUD_ADMIN_PASS" != "$ADMIN_PASS_CONFIRMATION" ]
+  do
+    echo That was not correct, try again
+    ask_for_password
+  done
 }
 
 function process_parameters
@@ -272,6 +287,8 @@ ncc db:add-missing-indices --no-interaction
 ncc db:convert-filecache-bigint --no-interaction
 
 ncc app:update --all
+## App updates may require additional steps to be done by the `upgrade` command
+ncc upgrade
 /usr/sbin/restorecon -R $APP_LOCATION
 
 if test -f ~/etc/services.d/notify_push.ini

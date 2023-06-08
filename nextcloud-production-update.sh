@@ -98,6 +98,8 @@ function do_update_procedure
   ncc db:add-missing-indices --no-interaction
   ncc db:convert-filecache-bigint --no-interaction
   ncc app:update --all
+  ## App updates may require additional steps to be done by the `upgrade` command
+  ncc upgrade
   /usr/sbin/restorecon -R "$APP_LOCATION"
   if test -f ~/etc/services.d/notify_push.ini
   then supervisorctl restart notify_push
