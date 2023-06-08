@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
 APP_NAME=Nextcloud
+PHP_VERSION=8.2
+
+PGP_KEY_FINGERPRINT='28806A878AE423A28372792ED75899B9A724937A'
 
 function install_nextcloud
 {
@@ -28,7 +31,6 @@ function install_nextcloud
   curl --silent --remote-name https://download.nextcloud.com/server/releases/"$signature_file"
   curl --silent --remote-name https://nextcloud.com/nextcloud.asc
   gpg --import nextcloud.asc
-  PGP_KEY_FINGERPRINT='28806A878AE423A28372792ED75899B9A724937A'
   #gpg --keyserver pgp.mit.edu --recv-keys $PGP_KEY_FINGERPRINT
   echo "$PGP_KEY_FINGERPRINT:6:" | gpg --import-ownertrust
   if ! gpg --verify "$signature_file" "$release_archive"
@@ -163,7 +165,7 @@ function get_version_name
 function setup_php
 {
   echo "Applying relevant PHP settings for Nextcloud"
-  uberspace tools version use php 8.1
+  uberspace tools version use php $PHP_VERSION
   touch ~/etc/php.d/opcache.ini
   cat << end_of_content > ~/etc/php.d/opcache.ini
 opcache.enable=1
