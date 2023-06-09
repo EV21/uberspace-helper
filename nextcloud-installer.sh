@@ -91,6 +91,7 @@ function uninstall_nextcloud
   fi
   if test -f ~/etc/services.d/notify_push.ini
   then
+    uberspace web backend del /push
     supervisorctl stop notify_push
     rm ~/etc/services.d/notify_push.ini
     supervisorctl reread
@@ -328,7 +329,7 @@ cat << end_of_content
 ├── _nextcloud_completion
 ├── bin
 │   ├── ncc (wrapper shortcut for ~/html/occ)
-│   ├── nextcloud-update ()
+│   ├── nextcloud-update
 │   └── notify_push -> /home/$USER/html/apps/notify_push/bin/x86_64/notify_push
 ├── nextcloud_data
 │   └── >> user files, etc. <<
