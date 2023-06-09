@@ -321,6 +321,27 @@ function yes_no_question
   done
 }
 
+function echo_tree
+{
+cat << end_of_content
+/home/$USER
+├── _nextcloud_completion
+├── bin
+│   ├── ncc (wrapper shortcut for ~/html/occ)
+│   ├── nextcloud-update ()
+│   └── notify_push -> /home/$USER/html/apps/notify_push/bin/x86_64/notify_push
+├── nextcloud_data
+│   └── >> user files, etc. <<
+├── html -> /var/www/virtual/$USER/html
+│   └── >> Nextcloud installation <<
+├── logs
+│   ├── nextcloud-cron.log
+│   ├── nextcloud-updater.log -> /home/$USER/nextcloud_data/updater.log
+│   └── nextcloud.log -> /home/$USER/nextcloud_data/nextcloud.log
+└── ...
+end_of_content
+}
+
 function set_critical_section { set -o pipefail -o errexit; }
 function unset_critical_section { set +o pipefail +o errexit; }
 
@@ -338,8 +359,9 @@ function main
     echo "This script installs the latest release of $APP_NAME"
     echo "and assumes a newly created Uberspace with default settings."
   fi
+  echo 'This will be the basic file structure'
+  echo_tree
   echo "Do not run this script if you already use your Uberspace for other apps!"
-
   if yes_no_question "Do you want to execute this installer for $APP_NAME?"
   then install_nextcloud
   fi
