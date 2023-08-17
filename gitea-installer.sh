@@ -202,9 +202,9 @@ DEFAULT_KEEP_EMAIL_PRIVATE = true
 NO_REPLY_ADDRESS           = noreply.${USER}.uber.space
 
 [mailer]
-ENABLED     = true
-MAILER_TYPE = sendmail
-FROM        = ${USER}@uber.space
+ENABLED  = true
+PROTOCOL = sendmail
+FROM     = ${USER}@uber.space
 
 [other]
 SHOW_FOOTER_VERSION = false
@@ -339,7 +339,7 @@ function verify_file
   fi
 }
 
-# version_lower_than A B
+# is_version_lower_than A B
 # returns whether A < B
 function is_version_lower_than
 {

@@ -68,7 +68,7 @@ function verify_file
   fi
 }
 
-# version_lower_than A B
+# is_version_lower_than A B
 # returns whether A < B
 function is_version_lower_than
 {
