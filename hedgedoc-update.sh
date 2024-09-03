@@ -6,7 +6,8 @@ LOCAL_VERSION=$(jq --raw-output .version ~/hedgedoc/package.json)
 LATEST_VERSION=$(curl --silent https://api.github.com/repos/$ORG/$REPO/releases/latest |
   jq --raw-output .tag_name)
 
-function do_upgrade() {
+function do_upgrade
+{
   supervisorctl stop hedgedoc
   echo "waiting 1 minute until all processes are stopped"
   sleep 1m
@@ -26,7 +27,7 @@ function do_upgrade() {
   rm --recursive ~/hedgedoc_"$LOCAL_VERSION"
 }
 
-function yes-no_question
+function yes_no_question
 {
   local question=$1
   while true
@@ -45,9 +46,9 @@ function yes-no_question
   done
 }
 
-## version_lower_than A B
+# is_version_lower_than A B
 # returns whether A < B
-function version_lower_than
+function is_version_lower_than
 {
   test "$(echo "$@" |
     tr " " "\n" |
@@ -55,11 +56,17 @@ function version_lower_than
     head --lines=1)" != "$1"
 }
 
+function is_update_available
+{
+  if is_version_lower_than "$LOCAL_VERSION" "$LATEST_VERSION"
+  then return 0
+  else return 1
+  fi
+}
+
 function main
 {
-  if [ "$LOCAL_VERSION" = "$LATEST_VERSION" ]
-  then echo "Your HedgeDoc is already up to date."
-  elif version_lower_than "$LOCAL_VERSION" "$LATEST_VERSION"
+  if is_update_available
   then
     echo "There is a new Version available of $APP_NAME"
     echo "The latest Version is $LATEST_VERSION"
@@ -68,9 +75,10 @@ function main
     echo "Please read the release notes."
     echo "Also check if the upgrade instructions have changed."
     echo "Your instance might break."
-    if yes-no_question "Do you wish to proceed with the upgrade?"
+    if yes_no_question "Do you wish to proceed with the upgrade?"
     then do_upgrade
     fi
+  else echo "Your HedgeDoc is already up to date."
   fi
 }
 
